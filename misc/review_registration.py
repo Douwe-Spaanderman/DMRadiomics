@@ -74,7 +74,11 @@ class SequencePanel(QWidget):
     def draw(self):
         self.ax.clear()
         self.ax.axis("off")
-        self.ax.imshow(self.image[:, :, self.current_slice], cmap="gray")
+        try:
+            self.ax.imshow(self.image[:, :, self.current_slice], cmap="gray")
+        except IndexError as e:
+            print(f"Error displaying the correct imag slice: {e}")
+            self.ax.imshow(self.image[:, :, 0], cmap="gray")
 
         rigid_slice = self.rigid_mask[:, :, self.current_slice] if self.rigid_mask is not None else None
         affine_slice = self.affine_mask[:, :, self.current_slice] if self.affine_mask is not None else None
@@ -143,7 +147,16 @@ class PatientViewer(QWidget):
             for d in os.listdir(root_folder)
             if os.path.isdir(os.path.join(root_folder, d))
         ])
-        self.current_patient_index = 0
+        self.current_psatient_index = 0
+        for idx, patient_dir in enumerate(self.patient_dirs):
+            review_path = os.path.join(patient_dir, 'registration_review.json')
+            if not os.path.exists(review_path):
+                self.current_patient_index = idx
+                break
+        else:
+            self.current_patient_index = len(self.patient_dirs)
+            print("All patients already reviewed.")
+
         self.sequence_panels = []
         self.patient_cache = {}
 
