@@ -48,7 +48,7 @@ def postprocess_patient(patient_input_dir, patient_output_dir):
         shutil.copy(original_mask_path, os.path.join(patient_output_dir, mask_name))
 
     # Copy reference T2.nii.gz and T2-mask.nii.gz
-    for ref_file in ["T2.nii.gz", "T2-mask.nii.gz"]:
+    for ref_file in ["T2.nii.gz", "T2-mask.nii.gz", "T2-FS.nii.gz", "T2-FS-mask.nii.gz", "T1.nii.gz", "T1-mask.nii.gz", "T1-FS.nii.gz", "T1-FS-mask.nii.gz", "T1-FS-C.nii.gz", "T1-FS-C-mask.nii.gz", "T1-C.nii.gz", "T1-C-mask.nii.gz"]:
         ref_src = os.path.join(patient_input_dir, ref_file)
         ref_dst = os.path.join(patient_output_dir, ref_file)
         if os.path.exists(ref_src):
