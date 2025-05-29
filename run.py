@@ -9,6 +9,7 @@ import glob
 script_path = os.path.dirname(os.path.abspath(__file__))
 
 modus = 'binary_classification'
+exclude = ['140015', '140025', '3523749', '3615751', 'T012', 'T019', 'T077']
 
 def get_images_and_labels(imagedatadir, sequences):
     """Get images and labels from the datadir."""
@@ -19,13 +20,17 @@ def get_images_and_labels(imagedatadir, sequences):
             if patient in images:
                 continue
 
+            # Get the patient name
+            patient_name = os.path.basename(patient)
+            if patient_name in exclude:
+                print(f"Skipping patient {patient_name} because in excluded list") 
+                continue
+
             # Get all images in the datadir
             image = os.path.abspath(os.path.join(patient, f'{sequence}.nii.gz'))
             label = os.path.abspath(os.path.join(patient, f'{sequence}-mask.nii.gz'))
 
             if os.path.exists(image) and os.path.exists(label):
-                # Get the patient name
-                patient_name = os.path.basename(patient)
                 print(f"Patient: {patient_name}, Image: {image}, Label: {label}")
                 
                 # Create a dictionary with the patient name as key and the image and label as values
@@ -105,11 +110,12 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada")
 
     # Determine whether we want to do a coarse quick experiment, or a full lengthy
     # one. Again, change this accordingly if you use your own data.
-    coarse = True
+    coarse = False
 
     # Instead of the default tempdir, let's but the temporary output in a subfolder
     # in the same folder as this script
-    tmpdir = os.path.join(script_path, 'WORC_' + experiment_name + "_" + external_center)
+    tmpfolder = fastr.config.mounts['tmp']
+    tmpdir = os.path.join(tmpfolder, 'WORC_' + experiment_name)
     print(f"Temporary folder: {tmpdir}.")
 
     # ---------------------------------------------------------------------------
@@ -137,11 +143,11 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada")
     experiment.predict_labels(label_name)
     experiment.set_image_types(['MRI'])
 
-    tmp = WORC.WORC('DMRadiomics')
+    tmp = WORC.WORC(experiment_name)
     config = tmp.defaultconfig()
     config['General']['AssumeSameImageAndMaskMetadata'] = 'True'
     config['General']['tempsave'] = 'True'
-    config['Classification']['fastr_plugin'] = 'DRMAAExecution'
+    #config['Classification']['fastr_plugin'] = 'DRMAAExecution'
     config['Bootstrap']['Use'] = 'True'
 
     experiment.add_config_overrides(config)
@@ -163,7 +169,7 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada")
 
     # Locate output folder
     outputfolder = fastr.config.mounts['output']
-    experiment_folder = os.path.join(outputfolder, 'WORC_' + experiment_name + "_" + external_center)
+    experiment_folder = os.path.join(outputfolder, 'WORC_' + experiment_name)
 
     print(f"Your output is stored in {experiment_folder}.")
 
