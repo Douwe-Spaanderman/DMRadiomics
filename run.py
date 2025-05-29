@@ -11,7 +11,31 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 modus = 'binary_classification'
 exclude = ['140015', '140025', '3523749', '3615751', 'T012', 'T019', 'T077']
 
-def get_images_and_labels(imagedatadir, sequences):
+def read_included_patients(label_file, label_name='PD'):
+    """Read included patients from label file."""
+    included_patients = []
+    if os.path.exists(label_file):
+        with open(label_file, 'r') as f:
+            # Read the header to identify the column index for label_name
+            header = f.readline().strip().split('\t')
+            if label_name not in header:
+                raise ValueError(f"Label name {label_name} not found in file header.")
+            label_index = header.index(label_name)
+
+            # Process the remaining lines
+            for line in f:
+                patient_data = line.strip().split('\t')
+                if len(patient_data) <= label_index:
+                    continue  # Skip invalid lines
+                patient, label = patient_data[0], patient_data[label_index]
+                if label and label != 'None':
+                    included_patients.append(patient)
+    else:
+        raise FileNotFoundError(f"Label file {label_file} does not exist.")
+    
+    return included_patients
+
+def get_images_and_labels(imagedatadir, sequences, included_patients):
     """Get images and labels from the datadir."""
     images, labels = {}, {}
     for sequence in sequences:
@@ -22,6 +46,10 @@ def get_images_and_labels(imagedatadir, sequences):
 
             # Get the patient name
             patient_name = os.path.basename(patient)
+            if patient_name not in included_patients:
+                print(f"Skipping patient {patient_name} because not in included list")
+                continue
+
             if patient_name in exclude:
                 print(f"Skipping patient {patient_name} because in excluded list") 
                 continue
@@ -80,7 +108,7 @@ def leave_one_out(images, labels, external_center):
 
     return Trimages, Trlabels, Tsimages, Tslabels
 
-def main(data_path, experiment_name, sequences=["T1"], external_center="Canada"):
+def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", label_name=["PD"]):
     """Execute WORC Tutorial experiment."""
     print(f"Running in folder: {script_path}.")
     # ---------------------------------------------------------------------------
@@ -106,7 +134,8 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada")
     # File in which the labels (i.e. outcome you want to predict) is stated
     # Again, change this accordingly if you use your own data.
     label_file = os.path.join(data_path, 'labels.txt')
-    label_name = ['PD']
+    # Read the labels from the file
+    included_patients = read_included_patients(label_file, label_name=label_name[0])
 
     # Determine whether we want to do a coarse quick experiment, or a full lengthy
     # one. Again, change this accordingly if you use your own data.
@@ -126,7 +155,7 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada")
     experiment = BasicWORC(experiment_name)
 
     # Get the images and labels from the datadir for the specified sequences
-    images, labels = get_images_and_labels(imagedatadir, sequences)
+    images, labels = get_images_and_labels(imagedatadir, sequences, included_patients)
 
     # Create a leave-one-out cross-validation
     Trimages, Trlabels, Tsimages, Tslabels = leave_one_out(images, labels, external_center)
@@ -152,7 +181,10 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada")
 
     experiment.add_config_overrides(config)
 
-    experiment.binary_classification(coarse=coarse)
+    if label_name[0] == 'Mutation':
+        experiment.multiclass_classification(coarse=coarse)
+    else:
+        experiment.binary_classification(coarse=coarse)
 
     # Set the temporary directory
     experiment.set_tmpdir(tmpdir)
@@ -238,7 +270,16 @@ if __name__ == '__main__':
         choices=["Canada", "Italy", "Netherlands"],
         help="External dataset to use"
     )
+    parser.add_argument(
+        "-l",
+        "--label_name",
+        default=["PD"],
+        nargs='+',
+        choices=['PD', 'Treatment', 'Mutation'],
+        help="Name of the label to predict"
+    )
+
 
     args = parser.parse_args()
 
-    main(args.data_path, args.experiment_name, args.sequences, args.external_center)
+    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.label_name)
