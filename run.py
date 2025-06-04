@@ -176,7 +176,6 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
     config = tmp.defaultconfig()
     config['General']['AssumeSameImageAndMaskMetadata'] = 'True'
     config['General']['tempsave'] = 'True'
-    #config['Classification']['fastr_plugin'] = 'DRMAAExecution'
     config['Bootstrap']['Use'] = 'True'
 
     experiment.add_config_overrides(config)
