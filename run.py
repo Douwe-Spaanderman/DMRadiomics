@@ -11,6 +11,12 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 modus = 'binary_classification'
 exclude = ['140015', '140025', '3523749', '3615751', 'T012', 'T019', 'T077']
 
+rules = {
+    "Canada": ["T"],
+    "Italy": ["3", "6", "7", "9"],
+    "Netherlands": ["11", "12", "13", "14", "15", "18"],
+}
+
 def read_included_patients(label_file, label_name='PD'):
     """Read included patients from label file."""
     included_patients = []
@@ -72,12 +78,6 @@ def leave_one_out(images, labels, external_center):
     # Create a leave-one-out cross-validation
     Trimages, Trlabels, Tsimages, Tslabels = {}, {}, {}, {}
 
-    rules = {
-        "Canada": ["T"],
-        "Italy": ["3", "6", "7", "9"],
-        "Netherlands": ["11", "12", "13", "14", "15", "18"],
-    }
-
     for patient in images.keys():
         if external_center == "Canada":
             if any(patient.startswith(rule) for rule in rules["Canada"]):
@@ -108,7 +108,32 @@ def leave_one_out(images, labels, external_center):
 
     return Trimages, Trlabels, Tsimages, Tslabels
 
-def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", label_name=["PD"]):
+def extract_center(images, labels, center):
+    """Leave one out cross-validation."""
+    # Extract one center from images and labels
+    Trimages, Trlabels = {}, {}
+
+    for patient in images.keys():
+        if center == "Canada":
+            if any(patient.startswith(rule) for rule in rules["Canada"]):
+                Trimages[patient] = images[patient]
+                Trlabels[patient] = labels[patient]
+        elif center == "Netherlands":
+            if any(patient.startswith(rule) for rule in rules["Netherlands"]):
+                Trimages[patient] = images[patient]
+                Trlabels[patient] = labels[patient]
+        elif center == "Italy":
+            if any(patient.startswith(rule) for rule in rules["Italy"]):
+                Trimages[patient] = images[patient]
+                Trlabels[patient] = labels[patient]
+        else:
+            raise ValueError(f"Unknown center: {center}")
+
+    print(f"Training images: {len(Trimages)}, Training labels: {len(Trlabels)}")
+
+    return Trimages, Trlabels
+
+def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequence="None"):
     """Execute WORC Tutorial experiment."""
     print(f"Running in folder: {script_path}.")
     # ---------------------------------------------------------------------------
@@ -158,32 +183,53 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
     images, labels = get_images_and_labels(imagedatadir, sequences, included_patients)
 
     # Create a leave-one-out cross-validation
-    Trimages, Trlabels, Tsimages, Tslabels = leave_one_out(images, labels, external_center)
+    if external_center != "None":
+        Trimages, Trlabels, Tsimages, Tslabels = leave_one_out(images, labels, external_center)
+    else:
+        Trimages, Trlabels = images, labels
+
+    if include_center != "All":
+        Trimages, Trlabels = extract_center(Trimages, Trlabels, include_center)
 
     # Add the images and segmentations to the experiment
     experiment.images_train.append(Trimages)
     experiment.segmentations_train.append(Trlabels)
-    experiment.images_test.append(Tsimages)
-    experiment.segmentations_test.append(Tslabels)
+    experiment.labels_from_this_file(label_file, is_training=True)
+
+    if external_center != "None":
+        experiment.images_test.append(Tsimages)
+        experiment.segmentations_test.append(Tslabels)
+        experiment.labels_from_this_file(label_file, is_training=False)
 
     # Set the experiment parameters
-    experiment.labels_from_this_file(label_file, is_training=True)
-    experiment.labels_from_this_file(label_file, is_training=False)
     experiment.predict_labels(label_name)
     experiment.set_image_types(['MRI'])
 
-    tmp = WORC.WORC(experiment_name)
-    config = tmp.defaultconfig()
-    config['General']['AssumeSameImageAndMaskMetadata'] = 'True'
-    config['General']['tempsave'] = 'True'
-    config['Bootstrap']['Use'] = 'True'
+    overwrite_config = {
+        'General': {
+            'AssumeSameImageAndMaskMetadata': 'True',
+            'tempsave': 'True'
+        },
+        'Classification': {
+            'fastr_plugin': 'ProcessPoolExecution'
+        },
+        'Bootstrap': {
+            'Use': 'True'
+        }
+    }
+    if combat:
+        print("Using ComBat")
+        overwrite_config['General'].update({'ComBat': True})
 
-    experiment.add_config_overrides(config)
+    experiment.add_config_overrides(overwrite_config)
 
     if label_name[0] == 'Mutation':
         experiment.multiclass_classification(coarse=coarse)
     else:
         experiment.binary_classification(coarse=coarse)
+
+    # Set multicore
+    experiment.set_multicore_execution()    
 
     # Set the temporary directory
     experiment.set_tmpdir(tmpdir)
@@ -266,8 +312,16 @@ if __name__ == '__main__':
         "--external_center",
         default="Canada",
         type=str,
-        choices=["Canada", "Italy", "Netherlands"],
+        choices=["None", "Canada", "Italy", "Netherlands"],
         help="External dataset to use"
+    )
+    parser.add_argument(
+        "-i",
+        "--include_center",
+        default="All",
+        type=str,
+        choices=["All", "Canada", "Italy", "Netherlands"],
+        help="Center for inclusion to use"
     )
     parser.add_argument(
         "-l",
@@ -277,8 +331,14 @@ if __name__ == '__main__':
         choices=['PD', 'Treatment', 'Mutation'],
         help="Name of the label to predict"
     )
-
+    parser.add_argument(
+        "-c",
+        "--combat",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Do you want to use ComBat to homogenous data"
+    )
 
     args = parser.parse_args()
 
-    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.label_name)
+    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.include_center, args.label_name, args.combat)
