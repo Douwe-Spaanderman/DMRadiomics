@@ -133,7 +133,31 @@ def extract_center(images, labels, center):
 
     return Trimages, Trlabels
 
-def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequence="None"):
+def create_dummy(dictionaries_A, dictionaries_B):
+    """Create dummy dictionaries to compare keys."""
+    final_A = ()
+    final_B = ()
+    for A, B in zip(dictionaries_A, dictionaries_B):
+        keysA = set(A.keys())
+        keysB = set(B.keys())
+
+        # Find missing keys
+        missing_in_dictB = keysA - keysB
+        missing_in_dictA = keysB - keysA
+
+        # Create dummy entries for missing keys
+        for key in missing_in_dictB:
+            B[f"{key}_Dummy"] = A[key]
+        for key in missing_in_dictA:
+            A[f"{key}_Dummy"] = B[key]
+
+        # Add to tuples
+        final_A += (A,)
+        final_B += (B,)
+
+    return final_A, final_B
+
+def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"]):
     """Execute WORC Tutorial experiment."""
     print(f"Running in folder: {script_path}.")
     # ---------------------------------------------------------------------------
@@ -190,6 +214,16 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
 
     if include_center != "All":
         Trimages, Trlabels = extract_center(Trimages, Trlabels, include_center)
+
+    if "None" not in additional_sequences:
+        print(f"Adding additional sequence: {additional_sequences}")
+        additional_images, additional_labels = get_images_and_labels(imagedatadir, additional_sequences, included_patients)
+        if external_center != "None":
+            Trimages2, Trlabels2, Tsimages2, Tslabels2 = leave_one_out(additional_images, additional_labels, external_center)
+            (Trimages, Trlabels, Tsimages, Tslabels), (Trimages2, Trlabels2, Tsimages2, Tslabels2) = create_dummy([Trimages, Trlabels, Tsimages, Tslabels], [Trimages2, Trlabels2, Tsimages2, Tslabels2])
+        else:
+            Trimages2, Trlabels2 = images, labels
+            (Trimages, Trlabels), (Trimages2, Trlabels2) = create_dummy([Trimages, Trlabels], [Trimages2, Trlabels2])
 
     # Add the images and segmentations to the experiment
     experiment.images_train.append(Trimages)
@@ -338,7 +372,15 @@ if __name__ == '__main__':
         action=argparse.BooleanOptionalAction,
         help="Do you want to use ComBat to homogenous data"
     )
+    parser.add_argument(
+        "-a",
+        "--additional_sequences",
+        default=["None"],
+        nargs='+',
+        choices=['None', 'T1', 'T1-FS', 'T1-C', 'T1-FS-C', 'T2', 'T2-FS'],
+        help="Additional sequences to include in the experiment"
+    )
 
     args = parser.parse_args()
 
-    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.include_center, args.label_name, args.combat)
+    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.include_center, args.label_name, args.combat, args.additional_sequences)
