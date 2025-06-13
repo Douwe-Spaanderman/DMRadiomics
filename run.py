@@ -218,11 +218,13 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
     if "None" not in additional_sequences:
         print(f"Adding additional sequence: {additional_sequences}")
         additional_images, additional_labels = get_images_and_labels(imagedatadir, additional_sequences, included_patients)
+        if include_center != "All":
+            additional_images, additional_labels = extract_center(additional_images, additional_labels, include_center)
         if external_center != "None":
             Trimages2, Trlabels2, Tsimages2, Tslabels2 = leave_one_out(additional_images, additional_labels, external_center)
             (Trimages, Trlabels, Tsimages, Tslabels), (Trimages2, Trlabels2, Tsimages2, Tslabels2) = create_dummy([Trimages, Trlabels, Tsimages, Tslabels], [Trimages2, Trlabels2, Tsimages2, Tslabels2])
         else:
-            Trimages2, Trlabels2 = images, labels
+            Trimages2, Trlabels2 = additional_images, additional_labels
             (Trimages, Trlabels), (Trimages2, Trlabels2) = create_dummy([Trimages, Trlabels], [Trimages2, Trlabels2])
 
     # Add the images and segmentations to the experiment
