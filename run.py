@@ -288,6 +288,9 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
         },
         'Bootstrap': {
             'Use': 'True'
+        },
+        "SelectFeatGroup": {
+            'semantic_features': 'False'
         }
     }
     if combat:
