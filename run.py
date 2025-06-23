@@ -194,7 +194,7 @@ def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age",
     else:
         return Trsemantics_file
 
-def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"], clinical=False):
+def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"], clinical=["None"]):
     """Execute WORC Tutorial experiment."""
     print(f"Running in folder: {script_path}.")
     # ---------------------------------------------------------------------------
@@ -294,7 +294,7 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
         print("Using ComBat")
         overwrite_config['General'].update({'ComBat': True})
     
-    if clinical:
+    if "None" not in clinical:
         print("Adding clinical data")
         if external_center != "None":
             Trsementics, Tssemantics = add_clinical_data(data_path, tmpdir, Trimages, Tsimages, clinical=clinical)
@@ -434,9 +434,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "-cl",
         "--clinical",
-        default=False,
+        default=["None"],
         nargs='+',
-        choices=['Age', 'Sex', 'Location'],
+        choices=['None', 'Age', 'Sex', 'Location'],
         help="Do you want to include clinical data in the experiment"
     )
 
