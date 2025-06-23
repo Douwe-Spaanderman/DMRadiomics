@@ -157,7 +157,44 @@ def create_dummy(dictionaries_A, dictionaries_B):
 
     return final_A, final_B
 
-def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"]):
+def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age", "Sex", "Location"]):
+    """Add clinical data to the experiment."""
+    clinical_path = os.path.join(data_path, 'clinical_data.csv')
+    if not os.path.exists(clinical_path):
+        raise FileNotFoundError(f"Clinical data file {clinical_path} does not exist.")
+    
+    # Read the clinical data
+    clinical_data = pd.read_csv(clinical_path)
+
+    # Extract the relevant columns based on the clinical input
+    columns_to_extract = ['Patient'] + clinical
+    clinical_data = clinical_data[columns_to_extract]
+
+    # Filter the clinical data for the patients in Trimages and Tsimages
+    Trpatients = list(Trimages.keys())
+    Trsemantics = clinical_data[clinical_data['Patient'].isin(Trpatients)]
+
+    # Make sure tmpdir exists
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
+
+    # Create Trsemantics DataFrame at tmpdir
+    Trsemantics_file = os.path.join(tmpdir, 'Trsemantics.csv')
+    Trsemantics.to_csv(Trsemantics_file, index=False)
+
+    if Tsimages:
+        Tspatients = list(Tsimages.keys())
+        Tssemantics = clinical_data[clinical_data['Patient'].isin(Tspatients)]
+
+        # Create Tssemantics DataFrame at tmpdir
+        Tssemantics_file = os.path.join(tmpdir, 'Tssemantics.csv')
+        Tssemantics.to_csv(Tssemantics_file, index=False)
+
+        return Trsemantics_file, Tssemantics_file
+    else:
+        return Trsemantics_file
+
+def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"], clinical=False):
     """Execute WORC Tutorial experiment."""
     print(f"Running in folder: {script_path}.")
     # ---------------------------------------------------------------------------
@@ -256,6 +293,18 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
     if combat:
         print("Using ComBat")
         overwrite_config['General'].update({'ComBat': True})
+    
+    if clinical:
+        print("Adding clinical data")
+        if external_center != "None":
+            Trsementics, Tssemantics = add_clinical_data(data_path, tmpdir, Trimages, Tsimages, clinical=clinical)
+            experiment.semantics_file_train.append(Trsementics)
+            experiment.semantics_file_test.append(Tssemantics)
+        else:
+            Trsementics = add_clinical_data(data_path, Trimages, clinical=clinical)
+            experiment.semantics_file_train.append(Trsementics)
+
+        overwrite_config['SelectFeatGroup'].update({'semantic_features': 'True'})
 
     experiment.add_config_overrides(overwrite_config)
 
@@ -368,7 +417,7 @@ if __name__ == '__main__':
         help="Name of the label to predict"
     )
     parser.add_argument(
-        "-c",
+        "-co",
         "--combat",
         default=False,
         action=argparse.BooleanOptionalAction,
@@ -382,7 +431,15 @@ if __name__ == '__main__':
         choices=['None', 'T1', 'T1-FS', 'T1-C', 'T1-FS-C', 'T2', 'T2-FS'],
         help="Additional sequences to include in the experiment"
     )
+    parser.add_argument(
+        "-cl",
+        "--clinical",
+        default=False,
+        nargs='+',
+        choices=['Age', 'Sex', 'Location'],
+        help="Do you want to include clinical data in the experiment"
+    )
 
     args = parser.parse_args()
 
-    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.include_center, args.label_name, args.combat, args.additional_sequences)
+    main(args.data_path, args.experiment_name, args.sequences, args.external_center, args.include_center, args.label_name, args.combat, args.additional_sequences, args.clinical)
