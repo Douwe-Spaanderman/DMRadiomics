@@ -162,7 +162,11 @@ def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age",
     clinical_path = os.path.join(data_path, 'clinical_data.csv')
     if not os.path.exists(clinical_path):
         raise FileNotFoundError(f"Clinical data file {clinical_path} does not exist.")
-    
+
+    # Make sure tmpdir exists
+    if not os.path.exists(tmpdir):
+        os.makedirs(tmpdir)
+
     # Read the clinical data
     clinical_data = pd.read_csv(clinical_path)
 
@@ -170,13 +174,12 @@ def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age",
     columns_to_extract = ['Patient'] + clinical
     clinical_data = clinical_data[columns_to_extract]
 
+    # Ensure the 'Patient' column is of type string
+    clinical_data['Patient'] = clinical_data['Patient'].astype(str)
+
     # Filter the clinical data for the patients in Trimages and Tsimages
     Trpatients = list(Trimages.keys())
     Trsemantics = clinical_data[clinical_data['Patient'].isin(Trpatients)]
-
-    # Make sure tmpdir exists
-    if not os.path.exists(tmpdir):
-        os.makedirs(tmpdir)
 
     # Create Trsemantics DataFrame at tmpdir
     Trsemantics_file = os.path.join(tmpdir, 'Trsemantics.csv')
