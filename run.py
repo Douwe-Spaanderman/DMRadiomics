@@ -290,12 +290,15 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
             'fastr_plugin': 'ProcessPoolExecution'
         },
         'Bootstrap': {
-            'Use': 'True'
+            'Use': 'False'
         },
         "SelectFeatGroup": {
             'semantic_features': 'False'
         }
     }
+    if external_center != "None":
+        overwrite_config['Bootstrap'].update({'Use': True})
+
     if combat:
         print("Using ComBat")
         overwrite_config['General'].update({'ComBat': True})
