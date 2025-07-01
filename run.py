@@ -260,6 +260,7 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
         additional_images, additional_labels = get_images_and_labels(imagedatadir, additional_sequences, included_patients)
         if include_center != "All":
             additional_images, additional_labels = extract_center(additional_images, additional_labels, include_center)
+        
         if external_center != "None":
             Trimages2, Trlabels2, Tsimages2, Tslabels2 = leave_one_out(additional_images, additional_labels, external_center)
             (Trimages, Trlabels, Tsimages, Tslabels), (Trimages2, Trlabels2, Tsimages2, Tslabels2) = create_dummy([Trimages, Trlabels, Tsimages, Tslabels], [Trimages2, Trlabels2, Tsimages2, Tslabels2])
@@ -277,9 +278,20 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
         experiment.segmentations_test.append(Tslabels)
         experiment.labels_from_this_file(label_file, is_training=False)
 
+    # Adding additional sequences:
+    images_types = ["MRI"]
+    if "None" not in additional_sequences:
+        images_types.append("MRI")
+        experiment.images_train.append(Trimages2)
+        experiment.segmentations_train.append(Trlabels2)
+
+        if external_center != "None":
+            experiment.images_test.append(Tsimages2)
+            experiment.segmentations_test.append(Tslabels2)
+
     # Set the experiment parameters
     experiment.predict_labels(label_name)
-    experiment.set_image_types(['MRI'])
+    experiment.set_image_types(images_types)
 
     overwrite_config = {
         'General': {
