@@ -160,6 +160,7 @@ def create_dummy(dictionaries_A, dictionaries_B):
 def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age", "Sex", "Location"]):
     """Add clinical data to the experiment."""
     clinical_path = os.path.join(data_path, 'clinical_data.csv')
+    clinical_path = os.path.join(data_path, 'clinical.csv') ## TODO REMOVEEEEE
     if not os.path.exists(clinical_path):
         raise FileNotFoundError(f"Clinical data file {clinical_path} does not exist.")
 
@@ -172,30 +173,85 @@ def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age",
 
     # Extract the relevant columns based on the clinical input
     columns_to_extract = ['Patient'] + clinical
+    columns_to_extract = [col for col in columns_to_extract if col in clinical_data.columns]
     clinical_data = clinical_data[columns_to_extract]
 
     # Ensure the 'Patient' column is of type string
     clinical_data['Patient'] = clinical_data['Patient'].astype(str)
 
-    # Filter the clinical data for the patients in Trimages and Tsimages
-    Trpatients = list(Trimages.keys())
-    Trsemantics = clinical_data[clinical_data['Patient'].isin(Trpatients)]
-
     # Create Trsemantics DataFrame at tmpdir
-    Trsemantics_file = os.path.join(tmpdir, 'Trsemantics.csv')
-    Trsemantics.to_csv(Trsemantics_file, index=False)
+    if "Only" in clinical:
+        feature_directory = os.path.join(tmpdir, 'ManualInputFeatures')
+        if not os.path.exists(feature_directory):
+            os.makedirs(feature_directory)
+            
+        clinical_data = clinical_data.set_index('Patient')
+        clinical_data = clinical_data.fillna(0)
+        for column in clinical_data.columns:
+            if clinical_data[column].dtype == "float" or clinical_data[column].dtype == "int":
+                clinical_data[column] = clinical_data[column].astype(int)
+            elif clinical_data[column].dtype == "object":
+                clinical_data[column] = pd.Categorical(clinical_data[column])
+                clinical_data[column] = clinical_data[column].cat.codes
 
-    if Tsimages:
-        Tspatients = list(Tsimages.keys())
-        Tssemantics = clinical_data[clinical_data['Patient'].isin(Tspatients)]
+        # Filter the clinical data for the patients in Trimages and Tsimages
+        Trpatients = list(Trimages.keys())
+        Trpatients = [patient.replace("_Dummy", "") for patient in Trpatients]
+        Trfeatures = clinical_data[clinical_data.index.isin(Trpatients)]
 
-        # Create Tssemantics DataFrame at tmpdir
-        Tssemantics_file = os.path.join(tmpdir, 'Tssemantics.csv')
-        Tssemantics.to_csv(Tssemantics_file, index=False)
+        Trfeatures_files = {}
+        for patient, row in Trfeatures.iterrows(): 
+            panda_data = pd.Series([
+                [float(x) for x in row.values.tolist()],
+                row.keys().tolist()],
+                index=['feature_values', 'feature_labels'],
+                name='Image features'
+            )
 
-        return Trsemantics_file, Tssemantics_file
+            file_path = os.path.join(feature_directory, patient + ".hdf5")
+            panda_data.to_hdf(file_path, 'image_features')
+            Trfeatures_files[patient] = file_path
+
+        if Tsimages:
+            Tspatients = list(Tsimages.keys())
+            Tspatients = [patient.replace("_Dummy", "") for patient in Tspatients]
+            Tsfeatures = clinical_data[clinical_data.index.isin(Tspatients)]
+
+            Tsfeatures_files = {}
+            for patient, row in Tsfeatures.iterrows(): 
+                panda_data = pd.Series([
+                    [float(x) for x in row.values.tolist()],
+                    row.keys().tolist()],
+                    index=['feature_values', 'feature_labels'],
+                    name='Image features'
+                )
+
+                file_path = os.path.join(feature_directory, patient + ".hdf5")
+                panda_data.to_hdf(file_path, 'image_features')
+                Tsfeatures_files[patient] = file_path
+
+            return Trfeatures_files, Tsfeatures_files
+        else:
+            return Trfeatures_files
     else:
-        return Trsemantics_file
+        # Filter the clinical data for the patients in Trimages and Tsimages
+        Trpatients = list(Trimages.keys())
+        Trsemantics = clinical_data[clinical_data['Patient'].isin(Trpatients)]
+        
+        Trsemantics_file = os.path.join(tmpdir, 'Trsemantics.csv')
+        Trsemantics.to_csv(Trsemantics_file, index=False)
+
+        if Tsimages:
+            Tspatients = list(Tsimages.keys())
+            Tssemantics = clinical_data[clinical_data['Patient'].isin(Tspatients)]
+
+            # Create Tssemantics DataFrame at tmpdir
+            Tssemantics_file = os.path.join(tmpdir, 'Tssemantics.csv')
+            Tssemantics.to_csv(Tssemantics_file, index=False)
+
+            return Trsemantics_file, Tssemantics_file
+        else:
+            return Trsemantics_file
 
 def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"], clinical=["None"]):
     """Execute WORC Tutorial experiment."""
@@ -280,7 +336,7 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
 
     # Adding additional sequences:
     images_types = ["MRI"]
-    if "None" not in additional_sequences:
+    if "None" not in additional_sequences and "Only" not in clinical:
         images_types.append("MRI")
         experiment.images_train.append(Trimages2)
         experiment.segmentations_train.append(Trlabels2)
@@ -306,6 +362,9 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
         },
         "SelectFeatGroup": {
             'semantic_features': 'False'
+        },
+        "Featsel": {
+            'GroupwiseSearch': 'True'
         }
     }
     if external_center != "None":
@@ -317,16 +376,53 @@ def main(data_path, experiment_name, sequences=["T1"], external_center="Canada",
     
     if "None" not in clinical:
         print("Adding clinical data")
-        if external_center != "None":
-            Trsementics, Tssemantics = add_clinical_data(data_path, tmpdir, Trimages, Tsimages, clinical=clinical)
-            experiment.semantics_file_train.append(Trsementics)
-            experiment.semantics_file_test.append(Tssemantics)
+        if "Only" in clinical:
+            if external_center != "None":
+                Trfeatures, Tsfeatures = add_clinical_data(data_path, tmpdir, Trimages, Tsimages, clinical=clinical)
+                experiment.features_train.append(Trfeatures)
+                experiment.features_test.append(Tsfeatures)
+            else:
+                Trfeatures = add_clinical_data(data_path, tmpdir, Trimages, clinical=clinical)
+                experiment.features_train.append(Trfeatures)
+
+            overwrite_config['SelectFeatGroup'].update({
+                'semantic_features': 'True',
+                'shape_features': 'False',
+                'histogram_features': 'False',
+                'orientation_features': 'False',
+                'texture_Gabor_features': 'False',
+                'texture_GLCM_features': 'False',
+                'texture_GLDM_features': 'False',
+                'texture_GLCMMS_features': 'False',
+                'texture_GLRLM_features': 'False',
+                'texture_GLSZM_features': 'False',
+                'texture_GLDZM_features': 'False',
+                'texture_NGTDM_features': 'False',
+                'texture_NGLDM_features': 'False',
+                'texture_LBP_features': 'False',
+                'dicom_features': 'False',
+                'vessel_features': 'False',
+                'phase_features': 'False',
+                'fractal_features': 'False',
+                'location_features': 'False',
+                'rgrd_features': 'False',
+                'original_features': 'False',
+                'wavelet_features': 'False',
+                'log_features': 'False',
+            })
+            overwrite_config['Featsel'].update({'GroupwiseSearch': 'False'})
         else:
-            Trsementics = add_clinical_data(data_path, Trimages, clinical=clinical)
-            experiment.semantics_file_train.append(Trsementics)
+            if external_center != "None":
+                Trsementics, Tssemantics = add_clinical_data(data_path, tmpdir, Trimages, Tsimages, clinical=clinical)
+                experiment.semantics_file_train.append(Trsementics)
+                experiment.semantics_file_test.append(Tssemantics)
+            else:
+                Trsementics = add_clinical_data(data_path, tmpdir, Trimages, clinical=clinical)
+                experiment.semantics_file_train.append(Trsementics)
 
-        overwrite_config['SelectFeatGroup'].update({'semantic_features': 'True'})
+            overwrite_config['SelectFeatGroup'].update({'semantic_features': 'True'})
 
+    print(overwrite_config)
     experiment.add_config_overrides(overwrite_config)
 
     if label_name[0] == 'Mutation':
@@ -457,7 +553,7 @@ if __name__ == '__main__':
         "--clinical",
         default=["None"],
         nargs='+',
-        choices=['None', 'Age', 'Sex', 'Location'],
+        choices=['None', 'Age', 'Sex', 'Location', 'Only'],
         help="Do you want to include clinical data in the experiment"
     )
 
