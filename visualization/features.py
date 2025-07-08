@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -7,120 +6,18 @@ from matplotlib.patches import Patch
 from adjustText import adjust_text
 from functools import reduce
 
-def read_feature_data(file_path, statistics="Mann-Whitney"):
-    """Reads performance data from a CSV file and returns it as a DataFrame."""
-    try:
-        data = pd.read_csv(file_path, skiprows=1)
-    except Exception as e:
-        print(f"Error reading file {file_path}: {e}")
-        return pd.DataFrame()
-    
-    objects = data["Label"]
-    labels = []
-    for o in objects:
-        if 'hf_' in o:
-            labels.append(0)
-        elif 'sf_' in o:
-            labels.append(1)
-        elif 'of_' in o:
-            labels.append(2)
-        elif 'GLCM_' in o or 'GLCMMS_' in o:
-            labels.append(3)
-        elif 'GLRLM_' in o:
-            labels.append(4)
-        elif 'GLSZM_' in o:
-            labels.append(5)
-        elif 'GLDM_' in o:
-            labels.append(6)
-        elif 'NGTDM_' in o:
-            labels.append(7)
-        elif 'Gabor_' in o:
-            labels.append(8)
-        elif 'semf_' in o:
-            labels.append(9)
-        elif 'df_' in o:
-            labels.append(10)
-        elif 'logf_' in o:
-            labels.append(11)
-        elif 'vf_' in o:
-            labels.append(12)
-        elif 'LBP_' in o:
-            labels.append(13)
-        elif 'phasef_' in o:
-            labels.append(14)
-        else:
-            raise KeyError(o)
-        
-    mapping = {0: 'Histogram',
-            1: 'Shape',
-            2: 'Orientation',
-            3: 'GLCM',
-            4: 'GLRLM',
-            5: 'GLSZM',
-            6: 'GLDM',
-            7: 'NGTDM',
-            8: 'Gabor',
-            9: 'Semantic',
-            10: 'DICOM',
-            11: 'LoG',
-            12: 'Vessel',
-            13: 'LBP',
-            14: 'Phase'
-            }
-            
-    # Replace several labels
-    objects = [o.replace('CalcFeatures_', '') for o in objects]
-    objects = [o.replace('featureconverter_', '') for o in objects]
-    objects = [o.replace('PREDICT_', '') for o in objects]
-    objects = [o.replace('PyRadiomics_', '') for o in objects]
-    objects = [o.replace('Pyradiomics_', '') for o in objects]
-    objects = [o.replace('predict_', '') for o in objects]
-    objects = [o.replace('pyradiomics_', '') for o in objects]
-    objects = [o.replace('_predict', '') for o in objects]
-    objects = [o.replace('_pyradiomics', '') for o in objects]
-    objects = [o.replace('original_', '') for o in objects]
-    objects = [o.replace('train_', '') for o in objects]
-    objects = [o.replace('test_', '') for o in objects]
-    objects = [o.replace('1_0_', '') for o in objects]
-    objects = [o.replace('hf_', '') for o in objects]
-    objects = [o.replace('sf_', '') for o in objects]
-    objects = [o.replace('of_', '') for o in objects]
-    objects = [o.replace('GLCM_', '') for o in objects]
-    objects = [o.replace('GLCMMS_', '') for o in objects]
-    objects = [o.replace('GLRLM_', '') for o in objects]
-    objects = [o.replace('GLSZM_', '') for o in objects]
-    objects = [o.replace('GLDM_', '') for o in objects]
-    objects = [o.replace('NGTDM_', '') for o in objects]
-    objects = [o.replace('Gabor_', '') for o in objects]
-    objects = [o.replace('semf_', '') for o in objects]
-    objects = [o.replace('df_', '') for o in objects]
-    objects = [o.replace('logf_', '') for o in objects]
-    objects = [o.replace('vf_', '') for o in objects]
-    objects = [o.replace('Frangi_', '') for o in objects]
-    objects = [o.replace('LBP_', '') for o in objects]
-    objects = [o.replace('phasef_', '') for o in objects]
-    objects = [o.replace('tf_', '') for o in objects]
-    objects = [o.replace('_MRI_0', '') for o in objects]
-    objects = [o.replace('MRI_0', '') for o in objects]
-    objects = [o.replace('_CT_0', '') for o in objects]
-    objects = [o.replace('_MR_0', '') for o in objects]
-    objects = [o.replace('CT_0', '') for o in objects]
-    objects = [o.replace('MR_0', '') for o in objects]
-
-    data["group"] = labels
-    data["name"] = objects
-    data = data.sort_values('group')
-    data = data.replace({"group": mapping})
-    data = data.reset_index(drop=True)
-    data = data[["Label", "group", "name", statistics]]
-    return data
-
 def plot_significant_features(data, statistics="Mann-Whitney", output_path="feature_plots", p_thresh=0.05, annotate_thresh=9e-5):
     # Marker styles for centers
     center_marker_map = {
         "Italy" : "*",
         "Canada" : "^",
-        "Netherlands" : ".",
+        "Netherlands" : "o",
+    }
+    # Marker sizes for centers
+    center_marker_size_map = {
+        "Italy": 150,
+        "Canada": 100,
+        "Netherlands": 80,
     }
     
     # Find unique centers and check of each center in center_marker_map is present in data
@@ -149,20 +46,24 @@ def plot_significant_features(data, statistics="Mann-Whitney", output_path="feat
     feature_significance_map = feature_data.groupby("Label")[statistics].min() < p_thresh
 
     # Assign colors to significant features based on their group
-    feature_colors = {}
+    feature_styles = {}
 
     groups = feature_data.set_index("Label")["group"].to_dict()
-    palette = sns.color_palette("colorblind", len(set(groups.values())))
-    group_color_map = {group: palette[i] for i, group in enumerate(set(groups.values()))}
+    palette = sns.color_palette("colorblind", len(set(groups.values())) + 1) 
+    palette.pop(7) # Manually adding one more color and removing grey
+    group_color_map = {group: palette[i] for i, group in enumerate(sorted(set(groups.values())))}
 
     for label, is_significant in feature_significance_map.items():
         if is_significant:
-            feature_colors[label] = group_color_map[groups[label]]
+            color = group_color_map[groups[label]]
+            alpha = 1.0
         else:
-            feature_colors[label] = "lightgray"
+            color = "lightgray"
+            alpha = 0.3
+
+        feature_styles[label] = (color, alpha)
 
     # Add x-axis indexing for each feature (Label)
-    feature_data = feature_data.sort_values(by=["group", "Feature"])
     feature_order = feature_data["Feature"].unique()
     feature_to_x = {feature: i for i, feature in enumerate(feature_order)}
     feature_data["x"] = feature_data["Feature"].map(feature_to_x)
@@ -175,10 +76,11 @@ def plot_significant_features(data, statistics="Mann-Whitney", output_path="feat
             plt.scatter(
                 row["x"],
                 row[statistics],
-                color=feature_colors[row["Feature"]],
+                color=feature_styles[row["Feature"]][0],
+                alpha=feature_styles[row["Feature"]][1],
                 marker=center_marker_map[center],
                 edgecolor="black",
-                s=120,
+                s=center_marker_size_map[center],
                 label=center  # may duplicate in legend, will fix below
             )
 
@@ -196,7 +98,7 @@ def plot_significant_features(data, statistics="Mann-Whitney", output_path="feat
     xtick_positions = []
     xtick_labels = []
 
-    grouped = feature_data.groupby("group")
+    grouped = feature_data.groupby("group", sort=False)
     current_idx = 0
 
     for group_name, group_df in grouped:

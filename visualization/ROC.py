@@ -43,18 +43,19 @@ def read_roc_data(file_path):
 def create_legend_info(data):
     legend_info = []
     for k, v in data.items():
+        if k == "All":
+            k = "All Centers"
         AUC = [round(float(x.replace("(", "").replace(",", "").replace(")", "")), 2) for x in v["AUC 95%:"].split(" ")]
-        legend_info.append(f"{k}: {AUC[0]:.2f}({AUC[1]:.2f}-{AUC[2]:.2f})")
+        legend_info.append(f"{k}: {AUC[0]:.2f} ({AUC[1]:.2f}-{AUC[2]:.2f})")
 
     return legend_info
 
-def plot_ROC(data, hue, radiologists=None, ax=None, title=None, figsize=(6, 6), output_path=None):
+def plot_ROC(data, ax=None, title=None, figsize=(6, 6), output_path=None):
     """
     Plot ROC curves from the given data.
-
-    Note, hue only works atm for "internalcenter" and "externalcenter".
     """
-    plot_data = []
+    external_plot_data = []
+    internal_plot_data = []
     AUC_data = {}
     for experiment, content in data.items():
         ROC_data = content["roc_data"]
@@ -63,51 +64,50 @@ def plot_ROC(data, hue, radiologists=None, ax=None, title=None, figsize=(6, 6), 
         if ROC_data is not None:
             ROC_data = ROC_data.copy()
             ROC_data["experiment"] = experiment
-            if meta.get(hue, "None") != "None":
-                if hue == "internalcenter" and meta.get("externalcenter", "") != "None":
-                    continue
-                
-                if hue == "externalcenter" and meta.get("internalcenter", "") != "All":
-                    continue
-
-                ROC_data[hue] = meta.get(hue, "None")
-                plot_data.append(ROC_data)
+            if meta.get("internalcenter", "None") == "All" and meta.get("externalcenter", "None") == "None":
+                ROC_data["center"] = meta.get("internalcenter", "None")
+                internal_plot_data.append(ROC_data)
 
                 # Add AUC data for legend
-                AUC_data[meta.get(hue, "None")] = content["performance"]
+                AUC_data[meta.get("internalcenter", "None")] = content["performance"]
+            elif meta.get("internalcenter", "None") == "All" and meta.get("externalcenter", "None") != "None":
+                ROC_data["center"] = meta.get("externalcenter", "None")
+                external_plot_data.append(ROC_data)
 
-    if not plot_data:
+                # Add AUC data for legend
+                AUC_data[meta.get("externalcenter", "None")] = content["performance"]
+
+    if not external_plot_data:
         return None
     
-    plot_data = pd.concat(plot_data, ignore_index=True)
+    external_plot_data = pd.concat(external_plot_data, ignore_index=True)
+
     # Order plot_data based on center
-    plot_data[hue] = pd.Categorical(plot_data[hue], categories=centers, ordered=True)
-    plot_data = plot_data.sort_values(by=hue)
+    external_plot_data["center"] = pd.Categorical(external_plot_data["center"], categories=centers, ordered=True)
+    external_plot_data = external_plot_data.sort_values(by="center")
 
     # order AUC based on center
     AUC_data = {center: AUC_data[center] for center in centers if center in AUC_data}
 
     # Find unique hues and assign colors
-    unique_hues = plot_data[hue].unique()
+    unique_hues = external_plot_data["center"].unique()
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
 
+    legend_handles = [Line2D([], [], color='white', alpha=0.0, label="External (LOCO) Validation")]
+    legend_info = ["External (LOCO) Validation"]
     for unique in unique_hues:
         # Filter data for the current hue
-        filtered_data = plot_data[plot_data[hue] == unique]
+        filtered_data = external_plot_data[external_plot_data["center"] == unique]
 
         # Order based on index
         filtered_data = filtered_data.sort_index()
 
         if not filtered_data.empty:
             ax.plot(filtered_data["1-Specificity"], filtered_data["Sensitivity"], label=unique, color=colors.get(unique, "black"), linestyle=linestyles.get(unique, "-"))
-
-    if radiologists is not None:
-        for d, color in zip(data.values(), colors):
-            for i, radiologist in enumerate(radiologists["radiologist"].unique()):
-                d = radiologists[(radiologists[hue] == d[hue]) & (radiologists["radiologist"] == radiologist)]
-                ax.scatter([1-d["specificity"]], [d["sensitivity"]], color=color, marker=markers[i], label=f"{d[hue]} {radiologist}")
+            legend_handles.append(Line2D([0], [0], label=unique, color=colors.get(unique, "black"), linestyle=linestyles.get(unique, "-")))
+            legend_info.extend(create_legend_info({k: v for k, v in AUC_data.items() if k == unique}))
 
     # Reference line
     ax.plot([-0.5, 1.5], [-0.5, 1.5], color='k', linestyle='-', linewidth=0.2)
@@ -118,20 +118,27 @@ def plot_ROC(data, hue, radiologists=None, ax=None, title=None, figsize=(6, 6), 
     ax.set_xlabel('1-Specificity', fontsize=14)
     ax.set_ylabel('Sensitivity', fontsize=14)
     ax.tick_params(axis='both', which='major', labelsize=12)
-    l1 = ax.legend(loc='center right', bbox_to_anchor=(1, 0.15), labels=create_legend_info(AUC_data), frameon=False, fontsize=12)
-    l1.set_title(r'$\bf{AUC\ (95\%\ CI)}$', prop={'size': 12})
 
-    if radiologists is not None:
-        handle_markers = []
-        handle_labels = []
-        for i, radiologist in enumerate(radiologists["radiologist"].unique()):
-            handle_markers.append(Line2D([0], [0], label=f'radiologist {radiologist}', marker=markers[i], color='black', linestyle=''))
-            handle_labels.append(f'Radiologist {i+1}')
+    if internal_plot_data:
+        internal_plot_data = pd.concat(internal_plot_data, ignore_index=True)
+        # Spacer for legend
+        legend_handles.append(Line2D([0], [0], color='white', alpha=0.0, label='')) 
+        legend_info.append('')
+        
+        ax.plot(internal_plot_data["1-Specificity"], internal_plot_data["Sensitivity"], label="Cross-Validation", color="black", linestyle="--", alpha=0.5)
+        legend_handles.append(Line2D([], [], color='white', alpha=0.0, label="Internal Cross-Validation"))
+        legend_handles.append(Line2D([0], [0], label='Cross-Validation', color="black", linestyle="--", alpha=0.5))
 
-        ax.legend(handles=[handle_markers, handle_labels], title='', loc='center right', bbox_to_anchor=(1, 0.1), scatterpoints=1, frameon=False, title_fontsize=12, fontsize=11)
+        legend_info.extend(["Internal Cross-Validation"] + create_legend_info({k: v for k, v in AUC_data.items() if k == "All"}))
 
-        # Add custom legend for cohorts
-        ax.gca().add_artist(l1)
+    l1 = ax.legend(handles=legend_handles, loc='center right', bbox_to_anchor=(1, 0.18), labels=legend_info, frameon=False, fontsize=12)
+   
+    # Bold only the section headers manually
+    for text in l1.get_texts():
+        if text.get_text() in ["External (LOCO) Validation", "Internal Cross-Validation"]:
+            text.set_weight('bold')
+
+    ax.add_artist(l1)
 
     if title is not None:
         ax.set_title(title, fontsize=16)

@@ -1,14 +1,25 @@
 import os
 import json
-from visualization import read_roc_data, read_feature_data, available_imaging, plot_significant_features, save_features_by_center, plot_ROC
-from itertools import groupby
-from operator import itemgetter
+from visualization import read_roc_data, plot_significant_features, save_features_by_center, plot_ROC
+from stats import read_posterior_data, calculate_DeLong, compute_auc_ci, read_feature_data
 import pandas as pd
+import numpy as np
 
 default_experiment_dict = {
-    'label': 'PD', 'seq': 'T2FS T2', 'addseq': 'None', 'externalcenter': 'None', 'internalcenter': 'All', 'ComBat': 'False'
+    'label': 'PD', 'seq': 'T2FS T2', 'addseq': 'None', 'externalcenter': 'None', 'internalcenter': 'All', 'ComBat': 'False', 'Clinical': 'None'
 }
 measurements = ["AUC", "F1-score", "Accuracy", "Sensitivity", "Specificity", "NPV", "Precision", "BCA"]
+
+subgroups = {
+    'Age': ['<=38', '>38'],
+    'Sex': ['Female', 'Male'],
+    'Location': ['Abdominal wall ', 'Extremities', 'Chest wall', 'Other'],
+    'Magnetic Field Strength': ['<=1.5T', '>1.5T'],
+    'Manufacturer': ['GE', 'Siemens', 'Philips', 'Unknown'],
+    'Fat saturation available': [False, True],
+    'Imputation required': [False, True],
+    'Radiomics on segmented scan': [False, True]
+}
 
 def format_value(cell):
     try:
@@ -18,7 +29,7 @@ def format_value(cell):
     except Exception:
         return cell  # If the cell can't be parsed, return as-is
 
-def extract_performance_measurements(data):
+def extract_performance_measurements(data, DeLong):
     """
 
     """
@@ -29,7 +40,8 @@ def extract_performance_measurements(data):
 
         final[experiment] = {
             **meta,
-            **{measurement: performance.get(measurement + " 95%:", None) for measurement in measurements}
+            **{measurement: performance.get(measurement + " 95%:", None) for measurement in measurements},
+            **{"p-value": DeLong.get(experiment, "")}
         }
     return final
 
@@ -52,7 +64,7 @@ def parse_experiment_name(name):
 
     return parsed
 
-def run_analyze(experiment_root, output_root, data_root):
+def run_analyze(experiment_root, output_root):
     """
     Analyze all WORC experiments for de
     
@@ -61,7 +73,6 @@ def run_analyze(experiment_root, output_root, data_root):
     Parameters:
     - experiment_root: Path to the experiment directory
     - output_root: Path to the result directory
-    - data_root: Path to the raw data directory
     """
     # Ensure output directory exists
     os.makedirs(output_root, exist_ok=True)
@@ -91,6 +102,9 @@ def run_analyze(experiment_root, output_root, data_root):
         # Load ROC data from CSV
         roc_data = read_roc_data(os.path.join(experiment_path, "Evaluation", 'ROC_all_0.csv'))
 
+        # Load probability data for statistical test
+        ranked_posterior = read_posterior_data(os.path.join(experiment_path, "Evaluation", 'RankedPosteriors_all_0.csv'))
+
         # Load feature importance data if available
         features_data = read_feature_data(os.path.join(experiment_path, "Evaluation", 'StatisticalTestFeatures_all_0.csv'))
 
@@ -99,11 +113,21 @@ def run_analyze(experiment_root, output_root, data_root):
             "ranking": ranking,
             "roc_data": roc_data,
             "features_data": features_data,
+            "ranked_posterior": ranked_posterior,
             "metadata": experiment_dict
         }
 
-    # Plot available imaging
-    available_imaging(data_root, output_root)
+    # Load clinical metadata
+    metadata = pd.read_csv(os.path.join(experiment_root, "clinical_updated.csv"))
+
+    # Set the groups based on robustness analysis paper
+    metadata['Age'] = np.where(metadata['Age'] <= 38, '<=38', '>38')
+    metadata['Sex'] = metadata['Sex'].str.capitalize()
+    metadata['Magnetic Field Strength'] = metadata['Magnetic Field Strength'].map({
+        '1T': '<=1.5T',
+        '1.5T': '<=1.5T',
+        '3T': '>1.5T'
+    })
 
     # Analyze combinations
     combinations = [
@@ -111,7 +135,7 @@ def run_analyze(experiment_root, output_root, data_root):
             'label': meta["metadata"].get("label"),
             'seq': meta["metadata"].get("seq"),
             'ComBat': meta["metadata"].get("ComBat"),
-            'addseq': meta["metadata"].get("addseq"),
+            'addseq': meta["metadata"].get("addseq")
         }
         for meta in data.values()
     ]
@@ -133,10 +157,10 @@ def run_analyze(experiment_root, output_root, data_root):
         }
         print(f"Found {len(matching_experiments)} experiments for this combination.")
 
-        # Plot features importance - Only for internal centers
+        # Plot features importance - Only for internal centers and not clinical
         feature_importance = {
             name: data for name, data in matching_experiments.items()
-            if data["metadata"].get("externalcenter", "") == "None" and data["metadata"].get("internalcenter", "") != "All"
+            if data["metadata"].get("externalcenter", "") == "None" and data["metadata"].get("internalcenter", "") != "All" and data["metadata"].get("Clinical", "") == "None"
         }
         if feature_importance:
             if len(feature_importance) > 3:
@@ -146,18 +170,92 @@ def run_analyze(experiment_root, output_root, data_root):
             plot_significant_features(data=feature_importance, output_path=os.path.join(combination_path, "features_importance.png"))
 
         # Plot ROC curves
-        plot_ROC(data=matching_experiments, hue="externalcenter", output_path=os.path.join(combination_path, "External_ROC.png"))
-        plot_ROC(data=matching_experiments, hue="internalcenter", output_path=os.path.join(combination_path, "Internal_ROC.png"))
+        # For normal experiment
+        ROC_data = {
+            name: data for name, data in matching_experiments.items()
+            if data["metadata"].get("Clinical", "") == "None"
+        }
+        plot_ROC(data=ROC_data, output_path=os.path.join(combination_path, "ROC.png"))
+        # For clinical models
+        ROC_data = {
+            name: data for name, data in matching_experiments.items()
+            if data["metadata"].get("Clinical", "") == "Location"
+        }
+        plot_ROC(data=ROC_data, output_path=os.path.join(combination_path, "ROC_Imaging_and_Location.png"))
+        ROC_data = {
+            name: data for name, data in matching_experiments.items()
+            if data["metadata"].get("Clinical", "") == "Age_Sex_Location"
+        }
+        plot_ROC(data=ROC_data, output_path=os.path.join(combination_path, "ROC_Imaging_and_Clinical.png"))
+        ROC_data = {
+            name: data for name, data in matching_experiments.items()
+            if data["metadata"].get("Clinical", "") == "Age_Sex_Location_Only"
+        }
+        plot_ROC(data=ROC_data, output_path=os.path.join(combination_path, "ROC_Clinical_only.png"))
+
+        # Calculate DeLong statistical test - and test robustness against other variables
+        external_data = {
+            name: data for name, data in matching_experiments.items()
+            if data["metadata"].get("externalcenter", "") != "None"
+        }
+        unique_centers = set([data["metadata"]["externalcenter"] for data in external_data.values()])
+        DeLong_results = {}
+        ranked_posteriors = []
+        for center in unique_centers:
+            baseline = [data for data in external_data.values() if data["metadata"].get("Clinical", "") == "None" and data["metadata"].get("externalcenter", "") == center]
+            if len(baseline) < 1 or len(baseline) > 1:
+                print("Weird, didn't expect multiple baseline experiments")
+            baseline = baseline[0]
+            baseline_ranked_posterior = baseline["ranked_posterior"]
+                
+            # Calculate DeLong statistical test
+            DeLong_rocB = {
+                name: data for name, data in external_data.items()
+                if data["metadata"].get("Clinical", "") != "None" and data["metadata"].get("externalcenter", "") == center
+            }
+            for key, roc in DeLong_rocB.items():
+                DeLong_results[key] = calculate_DeLong(baseline_ranked_posterior, roc["ranked_posterior"])
+
+            # Save ranked posterior data for the baseline
+            ranked_posteriors.append(baseline_ranked_posterior)
+
+        # Robustness assessment
+        ranked_posteriors = pd.concat(ranked_posteriors, ignore_index=True)
+        ranked_posteriors["PatientID"] = ranked_posteriors["PatientID"].astype(str)
+        ranked_posteriors = ranked_posteriors.merge(metadata, left_on="PatientID", right_on="Patient", how="left")
+        robustness = []
+        for subgroup, values in subgroups.items():
+            for value in values:
+                subset = ranked_posteriors[ranked_posteriors[subgroup] == value]
+                if subset['TrueLabel'].nunique() < 2:
+                    print(f"Skipping subgroup {subgroup} with value {value}: not enough unique labels.")
+                    continue
+
+                auc, lower, upper = compute_auc_ci(
+                    subset['TrueLabel'].values, subset['Probability'].values
+                )
+                robustness.append({
+                    'Feature': subgroup,
+                    'Level': value,
+                    'AUC': auc,
+                    '95% CI Lower': lower,
+                    '95% CI Upper': upper,
+                    'AUC [95% CI]': f"{auc:.2f} [{lower:.2f}, {upper:.2f}]",
+                    'N': len(subset)
+                })
+
+        robustness = pd.DataFrame(robustness)
+        robustness.to_csv(os.path.join(combination_path, "robustness.csv"), index=False)
 
         # Save performance measurements
-        performance_data.update(extract_performance_measurements(matching_experiments))
+        performance_data.update(extract_performance_measurements(matching_experiments, DeLong_results))
 
     # Convert performance data to DataFrame
     performance_data = pd.DataFrame.from_dict(performance_data, orient='index')
     performance_data = performance_data.applymap(format_value)
 
     # Sort rows
-    performance_data = performance_data.sort_values(['label', 'seq', 'addseq', 'externalcenter', 'internalcenter'])
+    performance_data = performance_data.sort_values(['label', 'externalcenter', 'internalcenter', 'seq', 'addseq', 'Clinical'])
 
     with pd.ExcelWriter(os.path.join(output_root, "performance.xlsx")) as writer:
         # Save the performance data to a new sheet
@@ -180,14 +278,7 @@ if __name__ == '__main__':
         type=str,
         help="Path to the result directory"
     )
-    parser.add_argument(
-        "-d",
-        "--data_path",
-        default="data/final",
-        type=str,
-        help="Path to the raw data directory"
-    )
 
     args = parser.parse_args()
 
-    run_analyze(args.experiment_path, args.output_path, args.data_path)
+    run_analyze(args.experiment_path, args.output_path)
