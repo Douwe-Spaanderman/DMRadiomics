@@ -3,16 +3,25 @@ from rpy2.robjects import numpy2ri
 import numpy as np
 import pandas as pd
 
-def read_posterior_data(data):
+def read_posterior_data(data: str) -> pd.DataFrame:
     """
-
+    Read posterior data from a CSV file and return a DataFrame with relevant columns.
+    Parameters:
+    - data: str or pd.DataFrame, path to the CSV file or DataFrame containing posterior data.
+    Returns:
+    - pd.DataFrame with columns: PatientID, TrueLabel, Probability.
     """
     data = pd.read_csv(data)
     return data[["PatientID", "TrueLabel", "Probability"]]
 
-def calculate_DeLong(rocA, rocB):
+def calculate_DeLong(rocA: pd.DataFrame, rocB: pd.DataFrame) -> float:
     """
-    
+    Calculate the DeLong test for comparing two ROC curves.
+    Parameters:
+    - rocA: pd.DataFrame, DataFrame containing PatientID, TrueLabel, and Probability for model A.
+    - rocB: pd.DataFrame, DataFrame containing PatientID, TrueLabel, and Probability for model B.
+    Returns:
+    - p-value from the DeLong test.
     """
     # Merge to align
     roc = pd.merge(

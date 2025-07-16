@@ -27,9 +27,16 @@ mapping = {
 }
 order = ["T1-FS", "T2-FS", "T1", "T2", "T1-FS-C", "T1-C"]
 
-def explore_data(output_root, data_root, ovewrite=True):
+def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None:
     """
-    
+    Explore all data for desmoid-type fibromatosis, including clinical and imaging data.
+    This function collects information about available MRI sequences, their parameters,
+    and the centers where the data was collected. It also performs statistical tests to compare
+    the distributions of these parameters across different centers.
+    Parameters:
+    - output_root: str, path to the directory where results will be saved.
+    - data_root: str, path to the directory containing the raw data.
+    - overwrite: bool, whether to overwrite existing clinical data with new information.
     """
     # Load clinical data
     clinical = pd.read_excel(os.path.join(data_root, "clinical.xlsx"))
@@ -228,7 +235,7 @@ def explore_data(output_root, data_root, ovewrite=True):
         else:
             continue
 
-    if ovewrite:
+    if overwrite:
         # Saving information to clinical needed for downstream analysis
         patient_information = {}
         for _, values in table.items():

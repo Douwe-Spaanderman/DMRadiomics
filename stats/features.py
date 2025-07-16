@@ -1,5 +1,4 @@
 
-import json
 import os
 import pandas as pd
 import glob
@@ -13,8 +12,15 @@ center_rules = {
     "Netherlands": ["11", "12", "13", "14", "15", "16", "18"],
 }
 
-def read_feature_data(file_path:Union[pd.DataFrame, str], statistics="Mann-Whitney"):
-    """Reads performance data from a CSV file and returns it as a DataFrame."""
+def read_feature_data(file_path:Union[pd.DataFrame, str], statistics: str = "Mann-Whitney") -> pd.DataFrame:
+    """
+    Read feature data from a CSV file or DataFrame and process it to extract labels and groups.
+    Parameters:
+    - file_path: str or pd.DataFrame, path to the CSV file or a DataFrame containing feature data.
+    - statistics: str, name of the statistics column to include in the output DataFrame.
+    Returns:
+    - pd.DataFrame with columns: Label, group, name, and the specified statistics.
+    """
     if isinstance(file_path, str):
         try:
             data = pd.read_csv(file_path, skiprows=1)
@@ -126,7 +132,7 @@ def read_feature_data(file_path:Union[pd.DataFrame, str], statistics="Mann-Whitn
     data = data[["Label", "group", "name", statistics]]
     return data
 
-def calculate_mann_whitney(data, group_col, value_col):
+def calculate_mann_whitney(data: pd.DataFrame, group_col: str, value_col: str) -> float:
     """
     Calculate the Mann-Whitney U statistic for two groups in the data.
 
@@ -153,7 +159,15 @@ def calculate_mann_whitney(data, group_col, value_col):
     
     return p_value
 
-def extract_features(input_root, label_file, output_root):
+def extract_features(input_root: str, label_file: str, output_root: str) -> None:
+    """
+    Extract features from HDF5 files in the input directory, calculate Mann-Whitney U statistics,
+    and save the results as plots.
+    Parameters:
+    - input_root: str, path to the directory containing HDF5 files with features.
+    - label_file: str, path to the label file containing patient labels.
+    - output_root: str, path to the directory where results will be saved.
+    """
     # Extract label from label file
     labels = pd.read_csv(label_file, sep="\t")
     label = input_root.split("/")[-1]

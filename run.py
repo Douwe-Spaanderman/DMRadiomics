@@ -1,10 +1,10 @@
-import WORC
 from WORC import BasicWORC
 import os
 import pandas as pd
 import json
 import fastr
 import glob
+from typing import List, Tuple, Dict
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -17,8 +17,19 @@ rules = {
     "Netherlands": ["11", "12", "13", "14", "15", "18"],
 }
 
-def read_included_patients(label_file, label_name='PD'):
-    """Read included patients from label file."""
+def read_included_patients(label_file: str, label_name: str = 'PD') -> List[str]:
+    """
+    Read the included patients from the label file.
+    The label file is expected to be a tab-separated file with the first column as patient ID
+    and the second column as the label.
+    If the label_name is not found in the file, it raises a ValueError.
+    If the label is 'None' or empty, the patient is not included.
+    Parameters:
+    - label_file: str, Path to the label file.
+    - label_name: str, The name of the label to include patients for.
+    Returns:
+    - included_patients: list, List of patient IDs that are included based on the label.
+    """
     included_patients = []
     if os.path.exists(label_file):
         with open(label_file, 'r') as f:
@@ -41,8 +52,21 @@ def read_included_patients(label_file, label_name='PD'):
     
     return included_patients
 
-def get_images_and_labels(imagedatadir, sequences, included_patients):
-    """Get images and labels from the datadir."""
+def get_images_and_labels(imagedatadir: str, sequences: List[str], included_patients: List[str]) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """
+    Get images and labels from the datadir for the specified sequences.
+    The images are expected to be in the format:
+        {patient_name}/{sequence}.nii.gz
+    The labels are expected to be in the format:
+        {patient_name}/{sequence}-mask.nii.gz
+    Parameters:
+    - imagedatadir: str, Path to the directory containing patient folders.
+    - sequences: list, List of sequences to include in the experiment.
+    - included_patients: list, List of patient names to include.
+    Returns:
+    - images: dict, Dictionary with patient names as keys and image paths as values.
+    - labels: dict, Dictionary with patient names as keys and label paths as values.
+    """
     images, labels = {}, {}
     for sequence in sequences:
         # Get all images masks in the datadir
@@ -73,8 +97,19 @@ def get_images_and_labels(imagedatadir, sequences, included_patients):
 
     return images, labels
 
-def leave_one_out(images, labels, external_center):
-    """Leave one out cross-validation."""
+def leave_one_out(images: Dict[str, str], labels: Dict[str, str], external_center: str) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str], Dict[str, str]]:
+    """
+    Create a leave-one-out cross-validation for the specified external center.
+    Parameters:
+    - images: dict, Dictionary with patient names as keys and image paths as values.
+    - labels: dict, Dictionary with patient names as keys and label paths as values.
+    - external_center: str, The external center to use for cross-validation.
+    Returns:
+    - Trimages: dict, Training images for the specified external center.
+    - Trlabels: dict, Training labels for the specified external center.
+    - Tsimages: dict, Testing images for the specified external center.
+    - Tslabels: dict, Testing labels for the specified external center.
+    """
     # Create a leave-one-out cross-validation
     Trimages, Trlabels, Tsimages, Tslabels = {}, {}, {}, {}
 
@@ -108,8 +143,17 @@ def leave_one_out(images, labels, external_center):
 
     return Trimages, Trlabels, Tsimages, Tslabels
 
-def extract_center(images, labels, center):
-    """Leave one out cross-validation."""
+def extract_center(images: Dict[str, str], labels: Dict[str, str], center: str) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """
+    Extract one center from images and labels based on the specified center.
+    Parameters:
+    - images: dict, Dictionary with patient names as keys and image paths as values.
+    - labels: dict, Dictionary with patient names as keys and label paths as values.
+    - center: str, The center to extract images and labels for.
+    Returns:
+    - Trimages: dict, Training images for the specified center.
+    - Trlabels: dict, Training labels for the specified center.
+    """
     # Extract one center from images and labels
     Trimages, Trlabels = {}, {}
 
@@ -133,8 +177,18 @@ def extract_center(images, labels, center):
 
     return Trimages, Trlabels
 
-def create_dummy(dictionaries_A, dictionaries_B):
-    """Create dummy dictionaries to compare keys."""
+def create_dummy(dictionaries_A: List[Dict[str, str]], dictionaries_B: List[Dict[str, str]]) -> Tuple[Tuple[Dict[str, str]], Tuple[Dict[str, str]]]:
+    """
+    Create dummy entries for missing keys in two dictionaries.
+    This function takes two lists of dictionaries and ensures that both lists have the same keys.
+    If a key is missing in one dictionary, it creates a dummy entry in the other dictionary.
+    Parameters:
+    - dictionaries_A: list, List of dictionaries A.
+    - dictionaries_B: list, List of dictionaries B.
+    Returns:
+    - final_A: tuple, Tuple of dictionaries A with dummy entries added.
+    - final_B: tuple, Tuple of dictionaries B with dummy entries added.
+    """
     final_A = ()
     final_B = ()
     for A, B in zip(dictionaries_A, dictionaries_B):
@@ -157,10 +211,20 @@ def create_dummy(dictionaries_A, dictionaries_B):
 
     return final_A, final_B
 
-def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age", "Sex", "Location"]):
-    """Add clinical data to the experiment."""
+def add_clinical_data(data_path: str, tmpdir: str, Trimages: Dict[str, str], Tsimages: Dict[str, str] = None, clinical: List[str] = ["Age", "Sex", "Location"]) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """
+    Add clinical data to the experiment.
+    Parameters:
+    - data_path: str, Path to the directory containing clinical data.
+    - tmpdir: str, Temporary directory to store the clinical data.
+    - Trimages: dict, Training images for the experiment.
+    - Tsimages: dict, Testing images for the experiment (optional).
+    - clinical: list, List of clinical features to include in the experiment.
+    Returns:
+    - Trfeatures_files: dict, Dictionary with patient names as keys and feature file paths as values for training images.
+    - Tsfeatures_files: dict, Dictionary with patient names as keys and feature file paths as values for testing images (optional).
+    """
     clinical_path = os.path.join(data_path, 'clinical_data.csv')
-    clinical_path = os.path.join(data_path, 'clinical.csv') ## TODO REMOVEEEEE
     if not os.path.exists(clinical_path):
         raise FileNotFoundError(f"Clinical data file {clinical_path} does not exist.")
 
@@ -253,8 +317,20 @@ def add_clinical_data(data_path, tmpdir, Trimages, Tsimages=[], clinical=["Age",
         else:
             return Trsemantics_file
 
-def main(data_path, experiment_name, sequences=["T1"], external_center="Canada", include_center="All", label_name=["PD"], combat=False, additional_sequences=["None"], clinical=["None"]):
-    """Execute WORC Tutorial experiment."""
+def main(data_path: str, experiment_name: str, sequences: List[str] = ["T1"], external_center: str = "Canada", include_center: str = "All", label_name: List[str] = ["PD"], combat: bool = False, additional_sequences: List[str] = ["None"], clinical: List[str] = ["None"]):
+    """
+    Main function to run the WORC experiment for desmoid-type fibromatosis.
+    Parameters:
+    - data_path: str, Path to the data directory.
+    - experiment_name: str, Name of the experiment.
+    - sequences: list, List of sequences to include in the experiment.
+    - external_center: str, External center to use for cross-validation.
+    - include_center: str, Center for inclusion to use.
+    - label_name: list, List of labels to predict.
+    - combat: bool, Whether to use ComBat for data homogenization.
+    - additional_sequences: list, List of additional sequences to include in the experiment.
+    - clinical: list, List of clinical features to include in the experiment.
+    """
     print(f"Running in folder: {script_path}.")
     # ---------------------------------------------------------------------------
     # Input

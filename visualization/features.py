@@ -5,8 +5,18 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from adjustText import adjust_text
 from functools import reduce
+from typing import Dict
 
-def plot_significant_features(data, statistics="Mann-Whitney", output_path="feature_plots", p_thresh=0.05, annotate_thresh=9e-5):
+def plot_significant_features(data: Dict[str, str], statistics: str = "Mann-Whitney", output_path: str = "feature_plots", p_thresh: float = 0.05, annotate_thresh: float = 9e-5) -> None:
+    """
+    Plot significant features across different centers.
+    Parameters:
+    - data: dict, contains feature data for each experiment.
+    - statistics: str, the name of the statistics column to plot.
+    - output_path: str, path to save the plot.
+    - p_thresh: float, threshold for significance.
+    - annotate_thresh: float, threshold for annotation.
+    """
     # Marker styles for centers
     center_marker_map = {
         "Italy" : "*",
@@ -137,7 +147,15 @@ def plot_significant_features(data, statistics="Mann-Whitney", output_path="feat
     plt.savefig(output_path, dpi=300)
     plt.close()
 
-def save_features_by_center(data: pd.DataFrame, output_path="significant_features.xlsx", statistics="Mann-Whitney", p_threshold=0.05):
+def save_features_by_center(data: Dict[str, str], output_path: str = "significant_features.xlsx", statistics: str = "Mann-Whitney", p_threshold: float = 0.05) -> None:
+    """
+    Save significant features across centers to an Excel file.
+    Parameters:
+    - data: dict, contains feature data for each experiment.
+    - output_path: str, path to save the Excel file.
+    - statistics: str, the name of the statistics column to filter on.
+    - p_threshold: float, threshold for significance.
+    """
     feature_data = []
     unique_centers = []
     for experiment, content in data.items():

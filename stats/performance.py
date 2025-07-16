@@ -4,8 +4,12 @@ import pandas as pd
 
 measurements = ["AUC", "F1-score", "Accuracy", "Sensitivity", "Specificity", "NPV", "Precision", "BCA"]
 
-# Assuming d is your DataFrame
-def format_value(cell):
+def format_value(cell: str) -> str:
+    """
+    Format a cell value from the performance measurements.
+    If the cell contains a string with parentheses and commas, it will be formatted to a string with two decimal places.
+    If the cell is not in the expected format, it will return the cell as-is.
+    """
     try:
         # Remove parentheses and commas, split by space
         parts = [round(float(x.replace("(", "").replace(",", "").replace(")", "")), 2) for x in cell.split()]
@@ -13,7 +17,13 @@ def format_value(cell):
     except Exception:
         return cell  # If the cell can't be parsed, return as-is
 
-def extract_performance_measurements(input_root="../data/results", output_root="../data/results"):
+def extract_performance_measurements(input_root: str = "../data/results", output_root: str = "../data/results") -> None:
+    """
+    Extract performance measurements from JSON files in the input directory and save them to an Excel file.
+    Parameters:
+    - input_root: str, path to the directory containing results folders.
+    - output_root: str, path to the directory where the Excel file will be saved.
+    """
     # Loop through results folders to find all unique experiments
     data = {}
     for experiment in os.listdir(input_root):

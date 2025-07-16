@@ -4,6 +4,7 @@ from visualization import read_roc_data, plot_significant_features, save_feature
 from stats import read_posterior_data, calculate_DeLong, compute_auc_ci, read_feature_data
 import pandas as pd
 import numpy as np
+from typing import Union, Dict
 
 default_experiment_dict = {
     'label': 'PD', 'seq': 'T2FS T2', 'addseq': 'None', 'externalcenter': 'None', 'internalcenter': 'All', 'ComBat': 'False', 'Clinical': 'None'
@@ -21,7 +22,16 @@ subgroups = {
     'Radiomics on segmented scan': [False, True]
 }
 
-def format_value(cell):
+def format_value(cell: str) -> str:
+    """
+    Format a cell value from the performance measurements.
+    If the cell contains a string with parentheses and commas, it will be formatted to a string with two decimal places.
+    If the cell is not in the expected format, it will return the cell as-is.
+    Parameters:
+    - cell: str, the cell value to format.
+    Returns:
+    - str, formatted cell value.
+    """
     try:
         # Remove parentheses and commas, split by space
         parts = [round(float(x.replace("(", "").replace(",", "").replace(")", "")), 2) for x in cell.split()]
@@ -29,9 +39,14 @@ def format_value(cell):
     except Exception:
         return cell  # If the cell can't be parsed, return as-is
 
-def extract_performance_measurements(data, DeLong):
+def extract_performance_measurements(data: Dict[str, dict], DeLong: Dict[str, float]) -> Dict[str, dict]:
     """
-
+    Extract performance measurements from the data dictionary and format them for output.
+    Parameters:
+    - data: dict, contains performance data for each experiment.
+    - DeLong: dict, contains p-values from the DeLong statistical test.
+    Returns:
+    - dict, formatted performance measurements for each experiment.
     """
     final = {}
     for experiment, content in data.items():
@@ -45,10 +60,14 @@ def extract_performance_measurements(data, DeLong):
         }
     return final
 
-def parse_experiment_name(name):
+def parse_experiment_name(name:str) -> Dict[str, Union[str, bool]]:
     """
-    Parse the experiment name into a dictionary.
-    """    
+    Parse the experiment name to extract metadata.
+    Parameters:
+    - name: str, the name of the experiment.
+    Returns:
+    - dict, containing parsed metadata with default values.
+    """
     # skip WORC_ prefix if it exists
     if name.startswith("WORC_"):
         name = name[5:]
@@ -64,15 +83,12 @@ def parse_experiment_name(name):
 
     return parsed
 
-def run_analyze(experiment_root, output_root):
+def run_analyze(experiment_root: str, output_root: str) -> None:
     """
-    Analyze all WORC experiments for de
-    
-    return finalsmoid-type fibromatosis.
-    
+    Run the analysis on all WORC experiments for desmoid-type fibromatosis.
     Parameters:
-    - experiment_root: Path to the experiment directory
-    - output_root: Path to the result directory
+    - experiment_root: str, path to the directory containing WORC experiment folders.
+    - output_root: str, path to the directory where results will be saved.
     """
     # Ensure output directory exists
     os.makedirs(output_root, exist_ok=True)

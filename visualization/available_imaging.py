@@ -5,13 +5,22 @@ import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
-import matplotlib.text as mtext
+from matplotlib.axes import Axes
+from typing import Tuple, List, Dict, Optional
 
 exclude = ['140015', '140025', '3523749', '3615751', 'T012', 'T019', 'T077']
 colorpalette = "colorblind"
 
-def read_included_patients(label_file, label_name='PD'):
-    """Read included patients from label file."""
+def read_included_patients(label_file: str, label_name: str = 'PD') -> Tuple[List[str], Dict[str, str]]:
+    """
+    Read the label file and return the included patients and their labels.
+    Parameters:
+    - label_file: str, path to the label file.
+    - label_name: str, name of the label to filter by.
+    Returns:
+    - included_patients: list of patient IDs that have the specified label.
+    - labels: dict mapping patient IDs to their labels.
+    """
     included_patients = []
     labels = {}
     if os.path.exists(label_file):
@@ -36,8 +45,16 @@ def read_included_patients(label_file, label_name='PD'):
     
     return included_patients, labels
 
-def get_sequences(imagedatadir, sequences, included_patients):
-    """Get images and labels from the datadir."""
+def get_sequences(imagedatadir: str, sequences: List[str], included_patients: List[str]) -> Dict[str, str]:
+    """
+    Get the sequences from the imagedatadir for the specified sequences and included patients.
+    Parameters:
+    - imagedatadir: str, path to the directory containing images.
+    - sequences: list of sequences to look for.
+    - included_patients: list of patient IDs to include.
+    Returns:
+    - result: dict mapping patient names to their sequences.
+    """
     result = {}
     for sequence in sequences:
         # Get all images masks in the datadir
@@ -63,7 +80,14 @@ def get_sequences(imagedatadir, sequences, included_patients):
 
     return result
 
-def find_center(sequences):
+def find_center(sequences: Dict[str, str]) -> Dict[str, str]:
+    """
+    Find the center for each patient based on the sequence prefix.
+    Parameters:
+    - sequences: dict mapping patient names to their sequences.
+    Returns:
+    - centers: dict mapping patient names to their centers.
+    """
     centers = {}
 
     rules = {
@@ -84,9 +108,19 @@ def find_center(sequences):
 
     return centers
 
-def create_barplot(data, ax=None, title=None):
+def create_barplot(data: pd.DataFrame, ax: Optional[Axes] = None, title: Optional[str]=None) -> Tuple[Axes, List[Patch]]:
+    """
+    Create a stacked bar plot for available imaging sequences across centers and labels.
+    Parameters:
+    - data: pd.DataFrame, DataFrame containing columns: 'center', 'label', 'sequences', 'missing', and 'count'.
+    - ax: matplotlib Axes object, optional, if None a new figure and axes will be created.
+    - title: str, optional, title for the plot.
+    Returns:
+    - ax: matplotlib Axes object with the bar plot.
+    - all_handles: list of matplotlib Patch objects for the legend.
+    """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 6))
+        _, ax = plt.subplots(figsize=(10, 6))
 
     sequences = sorted(data['sequences'].unique())
     centers = sorted(data['center'].unique())
@@ -185,7 +219,15 @@ def create_barplot(data, ax=None, title=None):
 
     return ax, all_handles
 
-def available_imaging(data_path='../data/final', output_root="../data/results", label_names=['PD', 'Treatment'], sequence_options=['T1', 'T1-FS', 'T1-C', 'T1-FS-C', 'T2', 'T2-FS']):
+def available_imaging(data_path: str = '../data/final', output_root: str = "../data/results", label_names: List[str] = ['PD', 'Treatment'], sequence_options: List[str] = ['T1', 'T1-FS', 'T1-C', 'T1-FS-C', 'T2', 'T2-FS']) -> None:
+    """
+    Visualize available imaging sequences across centers and labels.
+    Parameters:
+    - data_path: str, path to the directory containing imaging data.
+    - output_root: str, path to the directory where results will be saved.
+    - label_names: list of str, names of labels to visualize.
+    - sequence_options: list of str, imaging sequences to visualize.
+    """
     label_file = os.path.join(data_path, 'labels.txt')
 
     fig, ax = plt.subplots(nrows=len(label_names), figsize=(3*len(sequence_options), 6*len(label_names)), squeeze=False)

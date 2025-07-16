@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import seaborn as sns
-import json
 import pandas as pd
-import os
+from matplotlib.axes import Axes
+from typing import Dict, Optional, Tuple
 
 # Configuration for line styles and markers
 centers = ["Italy", "Canada", "Netherlands", "All"]
@@ -20,8 +20,14 @@ colors = {
 
 markers = ["*", "x", "o", "s"]
 
-
-def read_roc_data(file_path):
+def read_roc_data(file_path: str) -> pd.DataFrame:
+    """
+    Read ROC data from a CSV file and return a DataFrame with relevant columns.
+    Parameters:
+    - file_path: str, path to the CSV file containing ROC data.
+    Returns:
+    - pd.DataFrame with columns: FPR, TPR, 1-Specificity, Sensitivity.
+    """
     data = pd.read_csv(
         file_path,
         converters={
@@ -40,7 +46,14 @@ def read_roc_data(file_path):
 
     return data
 
-def create_legend_info(data):
+def create_legend_info(data: Dict[str, dict]) -> list:
+    """
+    Create legend information from the performance data.
+    Parameters:
+    - data: dict, contains performance data for each center.
+    Returns:
+    - list of strings for legend information.
+    """
     legend_info = []
     for k, v in data.items():
         if k == "All":
@@ -50,9 +63,15 @@ def create_legend_info(data):
 
     return legend_info
 
-def plot_ROC(data, ax=None, title=None, figsize=(6, 6), output_path=None):
+def plot_ROC(data: Dict[str, dict], ax: Optional[Axes] = None, title: Optional[str] = None, figsize: Tuple[int] = (6, 6), output_path: Optional[str] = None) -> Optional[Axes]:
     """
-    Plot ROC curves from the given data.
+    Plot ROC curves for external (LOCO) validation and internal cross-validation.
+    Parameters:
+    - data: dict, contains ROC data for each experiment.
+    - ax: matplotlib Axes object, if None a new figure and axes will be created.
+    - title: str, title of the plot.
+    - figsize: tuple, size of the figure.
+    - output_path: str, path to save the plot. If None, the plot will be shown.
     """
     external_plot_data = []
     internal_plot_data = []
