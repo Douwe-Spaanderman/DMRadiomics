@@ -1,7 +1,9 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15979231.svg)](https://zenodo.org/records/15979231)
+
 # DMRadiomics
 
 ## Overview  
-Scripts used to predict failure of active surveillance (AS) in desmoid-type fibromatosis (DTF) using WORC (Workflow for Optimal Radiomics Classification): <PLACEHOLDER>
+Scripts used to predict failure of active surveillance (AS) in desmoid-type fibromatosis (DTF) using WORC (Workflow for Optimal Radiomics Classification): <PLACEHOLDER FOR ARTICLE REFERENCE>
 
 Before trying out the code in this repository, we advice you to get
 familiar with the WORC package through the WORC tutorial:
@@ -11,7 +13,17 @@ https://github.com/MStarmans91/WORCTutorial.
 This project is licensed under the open-source [APACHE 2.0 License](LICENSE).
 
 If you use this code, please cite both this repository and the associated publication as follows:
-<PLACEHOLDER>
+<PLACEHOLDER FOR ARTICLE REFERENCE>
+```bibtex
+@software{Spaanderman2025desmoidradiomicscode,
+  author       = {Douwe J. Spaanderman and Martijn P. A. Starmans and Stefan Klein},
+  title        = {DMRadiomics},
+  year         = {2025},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.15979231},
+  url          = {https://github.com/Douwe-Spaanderman/DMRadiomics}
+}
+```
 
 We also encourage citing the underlying WORC methodology as follows:
 ```bibtex
