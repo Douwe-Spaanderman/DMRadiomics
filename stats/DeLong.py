@@ -3,6 +3,7 @@ from rpy2.robjects import numpy2ri
 import numpy as np
 import pandas as pd
 
+
 def read_posterior_data(data: str) -> pd.DataFrame:
     """
     Read posterior data from a CSV file and return a DataFrame with relevant columns.
@@ -13,6 +14,7 @@ def read_posterior_data(data: str) -> pd.DataFrame:
     """
     data = pd.read_csv(data)
     return data[["PatientID", "TrueLabel", "Probability"]]
+
 
 def calculate_DeLong(rocA: pd.DataFrame, rocB: pd.DataFrame) -> float:
     """
@@ -25,22 +27,24 @@ def calculate_DeLong(rocA: pd.DataFrame, rocB: pd.DataFrame) -> float:
     """
     # Merge to align
     roc = pd.merge(
-        left=rocA, 
+        left=rocA,
         right=rocB,
-        how='inner',
-        left_on=['PatientID', 'TrueLabel'],
-        right_on=['PatientID', 'TrueLabel'],
-        suffixes=('_A', '_B')
+        how="inner",
+        left_on=["PatientID", "TrueLabel"],
+        right_on=["PatientID", "TrueLabel"],
+        suffixes=("_A", "_B"),
     )
     # Check if len stayed the same
     if len(roc) != len(rocA) or len(roc) != len(rocB):
-        raise ValueError("ROCs should keep the same length, but this is not the case, meaning there are non-overlapping patients")
+        raise ValueError(
+            "ROCs should keep the same length, but this is not the case, meaning there are non-overlapping patients"
+        )
 
     # Activate automatic conversion of numpy arrays to R vectors
     numpy2ri.activate()
 
     # Import pROC R package
-    pROC = importr('pROC')
+    pROC = importr("pROC")
 
     # Call roc() for each model
     y_true = roc["TrueLabel"].to_numpy()
@@ -49,4 +53,4 @@ def calculate_DeLong(rocA: pd.DataFrame, rocB: pd.DataFrame) -> float:
 
     # Run DeLong test and return p-value
     DeLong = pROC.roc_test(roc1, roc2, method="delong", paired=True)
-    return DeLong.rx2('p.value')[0]
+    return DeLong.rx2("p.value")[0]

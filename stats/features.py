@@ -1,4 +1,3 @@
-
 import os
 import pandas as pd
 import glob
@@ -12,7 +11,10 @@ center_rules = {
     "Netherlands": ["11", "12", "13", "14", "15", "16", "18"],
 }
 
-def read_feature_data(file_path:Union[pd.DataFrame, str], statistics: str = "Mann-Whitney") -> pd.DataFrame:
+
+def read_feature_data(
+    file_path: Union[pd.DataFrame, str], statistics: str = "Mann-Whitney"
+) -> pd.DataFrame:
     """
     Read feature data from a CSV file or DataFrame and process it to extract labels and groups.
     Parameters:
@@ -31,106 +33,108 @@ def read_feature_data(file_path:Union[pd.DataFrame, str], statistics: str = "Man
         data = file_path.copy()
     else:
         raise ValueError("Input must be a file path (str) or a pandas DataFrame.")
-        
+
     objects = data["Label"]
     labels = []
     for o in objects:
-        if 'hf_' in o:
+        if "hf_" in o:
             labels.append(0)
-        elif 'sf_' in o:
+        elif "sf_" in o:
             labels.append(1)
-        elif 'of_' in o:
+        elif "of_" in o:
             labels.append(2)
-        elif 'GLCM_' in o or 'GLCMMS_' in o:
+        elif "GLCM_" in o or "GLCMMS_" in o:
             labels.append(3)
-        elif 'GLRLM_' in o:
+        elif "GLRLM_" in o:
             labels.append(4)
-        elif 'GLSZM_' in o:
+        elif "GLSZM_" in o:
             labels.append(5)
-        elif 'GLDM_' in o:
+        elif "GLDM_" in o:
             labels.append(6)
-        elif 'NGTDM_' in o:
+        elif "NGTDM_" in o:
             labels.append(7)
-        elif 'Gabor_' in o:
+        elif "Gabor_" in o:
             labels.append(8)
-        elif 'semf_' in o:
+        elif "semf_" in o:
             labels.append(9)
-        elif 'df_' in o:
+        elif "df_" in o:
             labels.append(10)
-        elif 'logf_' in o:
+        elif "logf_" in o:
             labels.append(11)
-        elif 'vf_' in o:
+        elif "vf_" in o:
             labels.append(12)
-        elif 'LBP_' in o:
+        elif "LBP_" in o:
             labels.append(13)
-        elif 'phasef_' in o:
+        elif "phasef_" in o:
             labels.append(14)
         else:
             raise KeyError(o)
-        
-    mapping = {0: 'Histogram',
-            1: 'Shape',
-            2: 'Orientation',
-            3: 'GLCM',
-            4: 'GLRLM',
-            5: 'GLSZM',
-            6: 'GLDM',
-            7: 'NGTDM',
-            8: 'Gabor',
-            9: 'Semantic',
-            10: 'DICOM',
-            11: 'LoG',
-            12: 'Vessel',
-            13: 'LBP',
-            14: 'Phase'
-            }
-            
+
+    mapping = {
+        0: "Histogram",
+        1: "Shape",
+        2: "Orientation",
+        3: "GLCM",
+        4: "GLRLM",
+        5: "GLSZM",
+        6: "GLDM",
+        7: "NGTDM",
+        8: "Gabor",
+        9: "Semantic",
+        10: "DICOM",
+        11: "LoG",
+        12: "Vessel",
+        13: "LBP",
+        14: "Phase",
+    }
+
     # Replace several labels
-    objects = [o.replace('CalcFeatures_', '') for o in objects]
-    objects = [o.replace('featureconverter_', '') for o in objects]
-    objects = [o.replace('PREDICT_', '') for o in objects]
-    objects = [o.replace('PyRadiomics_', '') for o in objects]
-    objects = [o.replace('Pyradiomics_', '') for o in objects]
-    objects = [o.replace('predict_', '') for o in objects]
-    objects = [o.replace('pyradiomics_', '') for o in objects]
-    objects = [o.replace('_predict', '') for o in objects]
-    objects = [o.replace('_pyradiomics', '') for o in objects]
-    objects = [o.replace('original_', '') for o in objects]
-    objects = [o.replace('train_', '') for o in objects]
-    objects = [o.replace('test_', '') for o in objects]
-    objects = [o.replace('1_0_', '') for o in objects]
-    objects = [o.replace('hf_', '') for o in objects]
-    objects = [o.replace('sf_', '') for o in objects]
-    objects = [o.replace('of_', '') for o in objects]
-    objects = [o.replace('GLCM_', '') for o in objects]
-    objects = [o.replace('GLCMMS_', '') for o in objects]
-    objects = [o.replace('GLRLM_', '') for o in objects]
-    objects = [o.replace('GLSZM_', '') for o in objects]
-    objects = [o.replace('GLDM_', '') for o in objects]
-    objects = [o.replace('NGTDM_', '') for o in objects]
-    objects = [o.replace('Gabor_', '') for o in objects]
-    objects = [o.replace('semf_', '') for o in objects]
-    objects = [o.replace('df_', '') for o in objects]
-    objects = [o.replace('logf_', '') for o in objects]
-    objects = [o.replace('vf_', '') for o in objects]
-    objects = [o.replace('Frangi_', '') for o in objects]
-    objects = [o.replace('LBP_', '') for o in objects]
-    objects = [o.replace('phasef_', '') for o in objects]
-    objects = [o.replace('tf_', '') for o in objects]
-    objects = [o.replace('_MRI_0', '') for o in objects]
-    objects = [o.replace('MRI_0', '') for o in objects]
-    objects = [o.replace('_CT_0', '') for o in objects]
-    objects = [o.replace('_MR_0', '') for o in objects]
-    objects = [o.replace('CT_0', '') for o in objects]
-    objects = [o.replace('MR_0', '') for o in objects]
+    objects = [o.replace("CalcFeatures_", "") for o in objects]
+    objects = [o.replace("featureconverter_", "") for o in objects]
+    objects = [o.replace("PREDICT_", "") for o in objects]
+    objects = [o.replace("PyRadiomics_", "") for o in objects]
+    objects = [o.replace("Pyradiomics_", "") for o in objects]
+    objects = [o.replace("predict_", "") for o in objects]
+    objects = [o.replace("pyradiomics_", "") for o in objects]
+    objects = [o.replace("_predict", "") for o in objects]
+    objects = [o.replace("_pyradiomics", "") for o in objects]
+    objects = [o.replace("original_", "") for o in objects]
+    objects = [o.replace("train_", "") for o in objects]
+    objects = [o.replace("test_", "") for o in objects]
+    objects = [o.replace("1_0_", "") for o in objects]
+    objects = [o.replace("hf_", "") for o in objects]
+    objects = [o.replace("sf_", "") for o in objects]
+    objects = [o.replace("of_", "") for o in objects]
+    objects = [o.replace("GLCM_", "") for o in objects]
+    objects = [o.replace("GLCMMS_", "") for o in objects]
+    objects = [o.replace("GLRLM_", "") for o in objects]
+    objects = [o.replace("GLSZM_", "") for o in objects]
+    objects = [o.replace("GLDM_", "") for o in objects]
+    objects = [o.replace("NGTDM_", "") for o in objects]
+    objects = [o.replace("Gabor_", "") for o in objects]
+    objects = [o.replace("semf_", "") for o in objects]
+    objects = [o.replace("df_", "") for o in objects]
+    objects = [o.replace("logf_", "") for o in objects]
+    objects = [o.replace("vf_", "") for o in objects]
+    objects = [o.replace("Frangi_", "") for o in objects]
+    objects = [o.replace("LBP_", "") for o in objects]
+    objects = [o.replace("phasef_", "") for o in objects]
+    objects = [o.replace("tf_", "") for o in objects]
+    objects = [o.replace("_MRI_0", "") for o in objects]
+    objects = [o.replace("MRI_0", "") for o in objects]
+    objects = [o.replace("_CT_0", "") for o in objects]
+    objects = [o.replace("_MR_0", "") for o in objects]
+    objects = [o.replace("CT_0", "") for o in objects]
+    objects = [o.replace("MR_0", "") for o in objects]
 
     data["group"] = labels
     data["name"] = objects
-    data = data.sort_values('group')
+    data = data.sort_values("group")
     data = data.replace({"group": mapping})
     data = data.reset_index(drop=True)
     data = data[["Label", "group", "name", statistics]]
     return data
+
 
 def calculate_mann_whitney(data: pd.DataFrame, group_col: str, value_col: str) -> float:
     """
@@ -146,7 +150,7 @@ def calculate_mann_whitney(data: pd.DataFrame, group_col: str, value_col: str) -
     - p_value: The p-value of the test.
     """
     groups = data.groupby(group_col)
-    
+
     group_keys = list(groups.groups.keys())
     group1 = groups.get_group(group_keys[0])[value_col]
     group2 = groups.get_group(group_keys[1])[value_col]
@@ -156,8 +160,9 @@ def calculate_mann_whitney(data: pd.DataFrame, group_col: str, value_col: str) -
     group2 = group2.dropna()
 
     p_value = mannwhitneyu(group1, group2, alternative="two-sided")[1]
-    
+
     return p_value
+
 
 def extract_features(input_root: str, label_file: str, output_root: str) -> None:
     """
@@ -189,7 +194,9 @@ def extract_features(input_root: str, label_file: str, output_root: str) -> None
                 break
 
         if center == None:
-            raise ValueError(f"Patient {patient} does not match any center rules: {center_rules}")
+            raise ValueError(
+                f"Patient {patient} does not match any center rules: {center_rules}"
+            )
 
         if "MRI_0_" in feature_file:
             sequence = "T2"
@@ -197,34 +204,46 @@ def extract_features(input_root: str, label_file: str, output_root: str) -> None
             sequence = "T1"
         else:
             raise ValueError(f"Unknown sequence in file: {feature_file}")
-        
+
         feature_data = pd.read_hdf(feature_file)
-        data.append({
-            "patient": patient,
-            "center": center,
-            "sequence": sequence,
-            **{k: v for k, v in zip(feature_data["feature_labels"], feature_data["feature_values"])},
-        })
+        data.append(
+            {
+                "patient": patient,
+                "center": center,
+                "sequence": sequence,
+                **{
+                    k: v
+                    for k, v in zip(
+                        feature_data["feature_labels"], feature_data["feature_values"]
+                    )
+                },
+            }
+        )
 
     data = pd.DataFrame(data)
-    data = data.merge(labels, left_on="patient", right_on="Patient", how="left").drop(columns=["Patient"])
+    data = data.merge(labels, left_on="patient", right_on="Patient", how="left").drop(
+        columns=["Patient"]
+    )
 
     for sequence in data["sequence"].unique():
         plot_data = {}
         for center in data["center"].unique():
-            center_data = data[(data["center"] == center) & (data["sequence"] == sequence)]
+            center_data = data[
+                (data["center"] == center) & (data["sequence"] == sequence)
+            ]
             if center_data.empty:
-                raise ValueError(f"No data found for center {center} and sequence {sequence}")
+                raise ValueError(
+                    f"No data found for center {center} and sequence {sequence}"
+                )
 
             # Calculate Mann-Whitney U statistic for each feature
-            features = center_data.columns.difference(["patient", "center", "sequence", label])
+            features = center_data.columns.difference(
+                ["patient", "center", "sequence", label]
+            )
             results = []
             for feature in features:
                 p_value = calculate_mann_whitney(center_data, label, feature)
-                results.append({
-                    "Label": feature,
-                    "Mann-Whitney": p_value
-                })
+                results.append({"Label": feature, "Mann-Whitney": p_value})
 
             results = pd.DataFrame(results)
             # This is a bit hacky, but needed to make work with the plotting function
@@ -233,22 +252,38 @@ def extract_features(input_root: str, label_file: str, output_root: str) -> None
                 "metadata": {
                     "internalcenter": center,
                     "sequence": sequence,
-                    "label": label
-                }
+                    "label": label,
+                },
             }
         # Save features by center
-        output_file = os.path.join(output_root, "features_importance", f"{label}_{sequence}.png")
+        output_file = os.path.join(
+            output_root, "features_importance", f"{label}_{sequence}.png"
+        )
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         plot_significant_features(data=plot_data, output_path=output_file)
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Extract features from hfd5 data and calculate Mann-Whitney.")
-    parser.add_argument("--input", type=str, default="data/features/Treatment", help="Input directory containing results")
-    parser.add_argument("--label", type=str, default="data/final/labels.txt", help="Label file")
-    parser.add_argument("--output", type=str, default="data/analyzed_results/V1", help="Output directory for results")
+
+    parser = argparse.ArgumentParser(
+        description="Extract features from hfd5 data and calculate Mann-Whitney."
+    )
+    parser.add_argument(
+        "--input",
+        type=str,
+        default="data/features/Treatment",
+        help="Input directory containing results",
+    )
+    parser.add_argument(
+        "--label", type=str, default="data/final/labels.txt", help="Label file"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="data/analyzed_results/V1",
+        help="Output directory for results",
+    )
 
     args = parser.parse_args()
     extract_features(args.input, args.label, args.output)
-

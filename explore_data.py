@@ -8,11 +8,7 @@ from collections import Counter
 from scipy.stats import chi2_contingency, kruskal
 
 mapping = {
-    "Magnetic Field Strength": {
-        "1.0": "1T",
-        "1.5": "1.5T",
-        "3.0": "3T"
-    },
+    "Magnetic Field Strength": {"1.0": "1T", "1.5": "1.5T", "3.0": "3T"},
     "Manufacturer": {
         "UMC_Utrecht_MR4": "Unknown",
         "Siemens Healthineers": "Siemens",
@@ -23,11 +19,12 @@ mapping = {
         "PHILIPS-HJ24JVI": "Philips",
         "GE MEDICAL SYSTEMS": "GE",
         "MRC30792": "Unknown",
-    }
+    },
 }
 order = ["T1-FS", "T2-FS", "T1", "T2", "T1-FS-C", "T1-C"]
 
-def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None:
+
+def explore_data(output_root: str, data_root: str, overwrite: bool = True) -> None:
     """
     Explore all data for desmoid-type fibromatosis, including clinical and imaging data.
     This function collects information about available MRI sequences, their parameters,
@@ -52,7 +49,7 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
     # Prepare dictionary to collect info per center
     centers = scanmeta["Center"].dropna().unique()
     table = {center: defaultdict(list) for center in centers}
-    
+
     for patient_id in valid_patients:
         scanmeta_patient = scanmeta[scanmeta["patient"].astype(str) == patient_id]
         if scanmeta_patient.empty:
@@ -64,37 +61,59 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
             continue
         elif segmented["scan"].nunique() > 1:
             # If multiple scans are available, pick one manually
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
         else:
             segmented = segmented.iloc[0]
 
         # Get session variables
-        metadata = eval(segmented["metadata"]) if isinstance(segmented["metadata"], str) else segmented["metadata"]
+        metadata = (
+            eval(segmented["metadata"])
+            if isinstance(segmented["metadata"], str)
+            else segmented["metadata"]
+        )
         scan_data = metadata.get("scan_data", {})
         center = segmented.get("Center", "Unknown")
         table[center]["Patient ID"].append(patient_id)
-        table[center]["MRI sequences segmented on"].append(segmented.get("Sequence Name", "Unknown"))
+        table[center]["MRI sequences segmented on"].append(
+            segmented.get("Sequence Name", "Unknown")
+        )
 
         # Magnetic field strength
-        field_strength = metadata.get("MagneticFieldStrength") or scan_data.get("fieldStrength")
-        table[center]["Magnetic Field Strength"].append(mapping["Magnetic Field Strength"].get(field_strength, "Unknown"))
+        field_strength = metadata.get("MagneticFieldStrength") or scan_data.get(
+            "fieldStrength"
+        )
+        table[center]["Magnetic Field Strength"].append(
+            mapping["Magnetic Field Strength"].get(field_strength, "Unknown")
+        )
 
         # Manufacturer
-        manufacturer = scan_data.get("scanner/manufacturer") or scan_data.get("scanner") or scan_data.get("manufacturer")
+        manufacturer = (
+            scan_data.get("scanner/manufacturer")
+            or scan_data.get("scanner")
+            or scan_data.get("manufacturer")
+        )
         if not manufacturer:
-            import ipdb; ipdb.set_trace()
-        table[center]["Manufacturer"].append(mapping["Manufacturer"].get(manufacturer, "Unknown"))
+            import ipdb
+
+            ipdb.set_trace()
+        table[center]["Manufacturer"].append(
+            mapping["Manufacturer"].get(manufacturer, "Unknown")
+        )
 
         # Now check additional sequences - filter scans to same orientation
         filtered = scanmeta_patient[
-            (scanmeta_patient["Available"] == True) &
-            (scanmeta_patient["Exclude"] == False) &
-            (scanmeta_patient["Imaging Plane"] == segmented["Imaging Plane"])
+            (scanmeta_patient["Available"] == True)
+            & (scanmeta_patient["Exclude"] == False)
+            & (scanmeta_patient["Imaging Plane"] == segmented["Imaging Plane"])
         ]
 
         # Keep only one of the sequences
         filtered = filtered.drop_duplicates(subset=["Sequence Name"], keep="first")
-        filtered["Sequence Name"] = pd.Categorical(filtered["Sequence Name"], categories=order, ordered=True)
+        filtered["Sequence Name"] = pd.Categorical(
+            filtered["Sequence Name"], categories=order, ordered=True
+        )
         filtered = filtered.sort_values(by="Sequence Name")
         filtered = filtered[filtered["Sequence Name"].notna()]
 
@@ -105,7 +124,11 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
             if pd.isna(center) or pd.isna(row["metadata"]):
                 continue
 
-            metadata = eval(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"]
+            metadata = (
+                eval(row["metadata"])
+                if isinstance(row["metadata"], str)
+                else row["metadata"]
+            )
             scan_data = metadata.get("scan_data", {})
 
             # Available Sequences
@@ -114,7 +137,7 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
 
             if seq_name in ["T1-FS-C", "T1-C"]:
                 continue
-                
+
             if seq_name.startswith("T1") and T1 == False:
                 T1 = True
                 seq = "T1"
@@ -127,12 +150,18 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
             # Slice Thickness (mm)
             slice_thickness = metadata.get("SliceThickness")
             if slice_thickness:
-                table[center][f"{seq}: Slice Thickness (mm)"].append(float(slice_thickness))
+                table[center][f"{seq}: Slice Thickness (mm)"].append(
+                    float(slice_thickness)
+                )
 
             # Repetition Time (ms)
-            repetition_time = metadata.get("RepetitionTime") or scan_data.get("parameters/tr")
+            repetition_time = metadata.get("RepetitionTime") or scan_data.get(
+                "parameters/tr"
+            )
             if repetition_time:
-                table[center][f"{seq}: Repetition Time (ms)"].append(float(repetition_time))
+                table[center][f"{seq}: Repetition Time (ms)"].append(
+                    float(repetition_time)
+                )
 
             # Echo Time (ms)
             echo_time = metadata.get("EchoTime") or scan_data.get("parameters/te")
@@ -141,15 +170,38 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
 
     # Define structure of output table with hierarchical rows (store as (section, subrow))
     raw_index_rows = [
-        ("Magnetic Field Strength", None), ("Magnetic Field Strength", "1T"), ("Magnetic Field Strength", "1.5T"), ("Magnetic Field Strength", "3T"),
-        ("Manufacturer", None), ("Manufacturer", "Siemens"), ("Manufacturer", "GE"), ("Manufacturer", "Philips"), ("Manufacturer", "Toshiba"), ("Manufacturer", "Hitachi"), ("Manufacturer", "Unknown"),
+        ("Magnetic Field Strength", None),
+        ("Magnetic Field Strength", "1T"),
+        ("Magnetic Field Strength", "1.5T"),
+        ("Magnetic Field Strength", "3T"),
+        ("Manufacturer", None),
+        ("Manufacturer", "Siemens"),
+        ("Manufacturer", "GE"),
+        ("Manufacturer", "Philips"),
+        ("Manufacturer", "Toshiba"),
+        ("Manufacturer", "Hitachi"),
+        ("Manufacturer", "Unknown"),
         ("Setting (Unit)", None),
-            ("Setting (Unit)", "T1: Slice Thickness (mm)"), ("Setting (Unit)", "T1: Repetition Time (ms)"), ("Setting (Unit)", "T1: Echo Time (ms)"),
-            ("Setting (Unit)", "T2: Slice Thickness (mm)"), ("Setting (Unit)", "T2: Repetition Time (ms)"), ("Setting (Unit)", "T2: Echo Time (ms)"),
-        ("Available MRI sequences", None), ("Available MRI sequences", "T1"), ("Available MRI sequences", "T1-FS"), ("Available MRI sequences", "T1-C"),
-            ("Available MRI sequences", "T1-FS-C"), ("Available MRI sequences", "T2"), ("Available MRI sequences", "T2-FS"),
-        ("MRI sequences segmented on", None), ("MRI sequences segmented on", "T1"), ("MRI sequences segmented on", "T1-FS"),
-            ("MRI sequences segmented on", "T1-C"), ("MRI sequences segmented on", "T1-FS-C"), ("MRI sequences segmented on", "T2"), ("MRI sequences segmented on", "T2-FS"),
+        ("Setting (Unit)", "T1: Slice Thickness (mm)"),
+        ("Setting (Unit)", "T1: Repetition Time (ms)"),
+        ("Setting (Unit)", "T1: Echo Time (ms)"),
+        ("Setting (Unit)", "T2: Slice Thickness (mm)"),
+        ("Setting (Unit)", "T2: Repetition Time (ms)"),
+        ("Setting (Unit)", "T2: Echo Time (ms)"),
+        ("Available MRI sequences", None),
+        ("Available MRI sequences", "T1"),
+        ("Available MRI sequences", "T1-FS"),
+        ("Available MRI sequences", "T1-C"),
+        ("Available MRI sequences", "T1-FS-C"),
+        ("Available MRI sequences", "T2"),
+        ("Available MRI sequences", "T2-FS"),
+        ("MRI sequences segmented on", None),
+        ("MRI sequences segmented on", "T1"),
+        ("MRI sequences segmented on", "T1-FS"),
+        ("MRI sequences segmented on", "T1-C"),
+        ("MRI sequences segmented on", "T1-FS-C"),
+        ("MRI sequences segmented on", "T2"),
+        ("MRI sequences segmented on", "T2-FS"),
     ]
 
     # Create readable index names (use full paths for sub-items)
@@ -170,8 +222,7 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
 
     # Count total patients per center
     patient_counts = {
-        center: len(clinical[clinical["Country"] == center])
-        for center in centers
+        center: len(clinical[clinical["Country"] == center]) for center in centers
     }
 
     for center in centers:
@@ -199,7 +250,9 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
             summary.loc[row, center] = value
 
     # Rename columns to include N
-    summary.columns = [f"{center} (N = {patient_counts[center]})" for center in summary.columns]
+    summary.columns = [
+        f"{center} (N = {patient_counts[center]})" for center in summary.columns
+    ]
 
     # Add p-value column and calculations
     summary["p-value"] = ""
@@ -218,14 +271,18 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
     }
 
     for item, test in tests.items():
-        values = [
-            table[center].get(item, []) for center in centers
-        ]
-        
+        values = [table[center].get(item, []) for center in centers]
+
         if test == "chi2":
             unique_values = sorted(set(v for sublist in values for v in sublist))
             contingency = pd.DataFrame(
-                {f"Center {i+1}": [Counter(center_data).get(k, 0) for k in unique_values] for i, center_data in enumerate(values)}, index=unique_values
+                {
+                    f"Center {i+1}": [
+                        Counter(center_data).get(k, 0) for k in unique_values
+                    ]
+                    for i, center_data in enumerate(values)
+                },
+                index=unique_values,
             )
             chi2, p, dof, expected = chi2_contingency(contingency.values)
             summary.loc[item, "p-value"] = f"{p:.3f}"
@@ -239,19 +296,22 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
         # Saving information to clinical needed for downstream analysis
         patient_information = {}
         for _, values in table.items():
-            patient_information.update({
-                patient_id: {
-                    "MRI sequences segmented on": segmented,
-                    "Magnetic Field Strength": field_strength,
-                    "Manufacturer": manufacturer
-                } for patient_id, segmented, field_strength, manufacturer in zip(
-                    values["Patient ID"],
-                    values["MRI sequences segmented on"],
-                    values["Magnetic Field Strength"],
-                    values["Manufacturer"]
-                )
-            })
-        
+            patient_information.update(
+                {
+                    patient_id: {
+                        "MRI sequences segmented on": segmented,
+                        "Magnetic Field Strength": field_strength,
+                        "Manufacturer": manufacturer,
+                    }
+                    for patient_id, segmented, field_strength, manufacturer in zip(
+                        values["Patient ID"],
+                        values["MRI sequences segmented on"],
+                        values["Magnetic Field Strength"],
+                        values["Manufacturer"],
+                    )
+                }
+            )
+
         # Save patient information to existing clinical
         tmp = pd.DataFrame.from_dict(patient_information, orient="index")
         tmp.index.name = "Study number"
@@ -266,22 +326,26 @@ def explore_data(output_root: str, data_root: str, overwrite: bool=True) -> None
     os.makedirs(output_root, exist_ok=True)
     summary.to_csv(output_file, index=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Explore all data for desmoid-type fibromatosis")
+
+    parser = argparse.ArgumentParser(
+        description="Explore all data for desmoid-type fibromatosis"
+    )
     parser.add_argument(
         "-o",
         "--output_path",
         default="data/analyzed_results",
         type=str,
-        help="Path to the result directory"
+        help="Path to the result directory",
     )
     parser.add_argument(
         "-d",
         "--data_path",
         default="data/final",
         type=str,
-        help="Path to the raw data directory"
+        help="Path to the raw data directory",
     )
 
     args = parser.parse_args()

@@ -4,7 +4,10 @@ from sklearn.utils import resample
 
 from typing import Tuple
 
-def compute_auc_ci(y_true, y_prob, n_bootstraps=1000, ci=0.95) -> Tuple[float, float, float]:
+
+def compute_auc_ci(
+    y_true, y_prob, n_bootstraps=1000, ci=0.95
+) -> Tuple[float, float, float]:
     """
     Compute the AUC and its confidence interval using bootstrapping.
     Parameters:
@@ -24,7 +27,7 @@ def compute_auc_ci(y_true, y_prob, n_bootstraps=1000, ci=0.95) -> Tuple[float, f
             continue
         score = roc_auc_score(y_true[indices], y_prob[indices])
         bootstrapped_scores.append(score)
-    
+
     sorted_scores = np.sort(bootstrapped_scores)
     lower = sorted_scores[int((1.0 - ci) / 2.0 * len(sorted_scores))]
     upper = sorted_scores[int((1.0 + ci) / 2.0 * len(sorted_scores))]

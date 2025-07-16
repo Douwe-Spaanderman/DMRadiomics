@@ -4,13 +4,23 @@ import json
 import nibabel as nib
 import numpy as np
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QCheckBox, QPushButton, QFileDialog, QScrollArea, QSlider, QComboBox
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QCheckBox,
+    QPushButton,
+    QFileDialog,
+    QScrollArea,
+    QSlider,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt, QEvent
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from skimage import measure
+
 
 class SequencePanel(QWidget):
     def __init__(self, name, image, rigid_mask, affine_mask, is_reference=False):
@@ -30,7 +40,7 @@ class SequencePanel(QWidget):
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
-        self.canvas = FigureCanvas(plt.figure(figsize=(3, 3), facecolor='black'))
+        self.canvas = FigureCanvas(plt.figure(figsize=(3, 3), facecolor="black"))
         self.canvas.setFixedSize(512, 512)
         self.ax = self.canvas.figure.add_subplot(111)
         self.layout.addWidget(self.canvas)
@@ -67,7 +77,9 @@ class SequencePanel(QWidget):
         return self.image.shape[2] // 2
 
     def toggle_mask(self):
-        self.current_mask_type = "affine" if self.current_mask_type == "rigid" else "rigid"
+        self.current_mask_type = (
+            "affine" if self.current_mask_type == "rigid" else "rigid"
+        )
         self.toggle_button.setText(f"Using: {self.current_mask_type.capitalize()}")
         self.draw()
 
@@ -80,27 +92,59 @@ class SequencePanel(QWidget):
             print(f"Error displaying the correct imag slice: {e}")
             self.ax.imshow(self.image[:, :, 0], cmap="gray")
 
-        rigid_slice = self.rigid_mask[:, :, self.current_slice] if self.rigid_mask is not None else None
-        affine_slice = self.affine_mask[:, :, self.current_slice] if self.affine_mask is not None else None
+        rigid_slice = (
+            self.rigid_mask[:, :, self.current_slice]
+            if self.rigid_mask is not None
+            else None
+        )
+        affine_slice = (
+            self.affine_mask[:, :, self.current_slice]
+            if self.affine_mask is not None
+            else None
+        )
 
         if self.current_mask_type == "rigid":
             if affine_slice is not None and np.any(affine_slice):
                 contours = measure.find_contours(affine_slice, 0.5)
                 for contour in contours:
-                    self.ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color="blue", alpha=0.5)
+                    self.ax.plot(
+                        contour[:, 1],
+                        contour[:, 0],
+                        linewidth=1.5,
+                        color="blue",
+                        alpha=0.5,
+                    )
             if rigid_slice is not None and np.any(rigid_slice):
                 contours = measure.find_contours(rigid_slice, 0.5)
                 for contour in contours:
-                    self.ax.plot(contour[:, 1], contour[:, 0], linewidth=2.0, color="red", alpha=0.9)
+                    self.ax.plot(
+                        contour[:, 1],
+                        contour[:, 0],
+                        linewidth=2.0,
+                        color="red",
+                        alpha=0.9,
+                    )
         else:
             if rigid_slice is not None and np.any(rigid_slice):
                 contours = measure.find_contours(rigid_slice, 0.5)
                 for contour in contours:
-                    self.ax.plot(contour[:, 1], contour[:, 0], linewidth=1.5, color="red", alpha=0.5)
+                    self.ax.plot(
+                        contour[:, 1],
+                        contour[:, 0],
+                        linewidth=1.5,
+                        color="red",
+                        alpha=0.5,
+                    )
             if affine_slice is not None and np.any(affine_slice):
                 contours = measure.find_contours(affine_slice, 0.5)
                 for contour in contours:
-                    self.ax.plot(contour[:, 1], contour[:, 0], linewidth=2.0, color="blue", alpha=0.9)
+                    self.ax.plot(
+                        contour[:, 1],
+                        contour[:, 0],
+                        linewidth=2.0,
+                        color="blue",
+                        alpha=0.9,
+                    )
 
         self.canvas.draw()
 
@@ -142,14 +186,16 @@ class PatientViewer(QWidget):
         super().__init__()
         self.setWindowTitle("Patient Registration Viewer")
         self.root_folder = root_folder
-        self.patient_dirs = sorted([
-            os.path.join(root_folder, d)
-            for d in os.listdir(root_folder)
-            if os.path.isdir(os.path.join(root_folder, d))
-        ])
+        self.patient_dirs = sorted(
+            [
+                os.path.join(root_folder, d)
+                for d in os.listdir(root_folder)
+                if os.path.isdir(os.path.join(root_folder, d))
+            ]
+        )
         self.current_psatient_index = 0
         for idx, patient_dir in enumerate(self.patient_dirs):
-            review_path = os.path.join(patient_dir, 'registration_review.json')
+            review_path = os.path.join(patient_dir, "registration_review.json")
             if not os.path.exists(review_path):
                 self.current_patient_index = idx
                 break
@@ -209,17 +255,29 @@ class PatientViewer(QWidget):
             return
 
         ref_img = nib.load(os.path.join(patient_folder, ref_image_name)).get_fdata()
-        ref_mask = nib.load(os.path.join(patient_folder, ref_image_name.replace(".nii.gz", "-mask.nii.gz"))).get_fdata()
-        panel = SequencePanel(ref_image_name, ref_img, ref_mask, None, is_reference=True)
+        ref_mask = nib.load(
+            os.path.join(
+                patient_folder, ref_image_name.replace(".nii.gz", "-mask.nii.gz")
+            )
+        ).get_fdata()
+        panel = SequencePanel(
+            ref_image_name, ref_img, ref_mask, None, is_reference=True
+        )
         self.sequence_panels.append(panel)
         self.scroll_layout.addWidget(panel)
 
         for img in images:
             if img == ref_image_name:
                 continue
-            rigid_mask_path = os.path.join(patient_folder, img.replace(".nii.gz", "-rigid-mask.nii.gz"))
-            affine_mask_path = os.path.join(patient_folder, img.replace(".nii.gz", "-affine-mask.nii.gz"))
-            if not (os.path.exists(rigid_mask_path) and os.path.exists(affine_mask_path)):
+            rigid_mask_path = os.path.join(
+                patient_folder, img.replace(".nii.gz", "-rigid-mask.nii.gz")
+            )
+            affine_mask_path = os.path.join(
+                patient_folder, img.replace(".nii.gz", "-affine-mask.nii.gz")
+            )
+            if not (
+                os.path.exists(rigid_mask_path) and os.path.exists(affine_mask_path)
+            ):
                 continue
             image_data = nib.load(os.path.join(patient_folder, img)).get_fdata()
             rigid_mask = nib.load(rigid_mask_path).get_fdata()
@@ -237,7 +295,7 @@ class PatientViewer(QWidget):
             if not panel.is_reference:
                 results[panel.name] = {
                     "RegistrationOK": panel.checkbox.isChecked(),
-                    "ChosenMask": panel.current_mask_type
+                    "ChosenMask": panel.current_mask_type,
                 }
         json_path = os.path.join(patient_folder, "registration_review.json")
         with open(json_path, "w") as f:
@@ -256,7 +314,9 @@ class PatientViewer(QWidget):
                 panel.checkbox.setChecked(results[panel.name]["RegistrationOK"])
                 panel.current_mask_type = results[panel.name].get("ChosenMask", "rigid")
                 if hasattr(panel, "toggle_button"):
-                    panel.toggle_button.setText(f"Using: {panel.current_mask_type.capitalize()}")
+                    panel.toggle_button.setText(
+                        f"Using: {panel.current_mask_type.capitalize()}"
+                    )
                 panel.draw()
 
     def load_next_patient(self):
